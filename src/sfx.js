@@ -65,4 +65,58 @@ export const sfx = {
     tone(660, 0.1, 'sine', 0.12, 0)
     tone(990, 0.14, 'sine', 0.12, 0.08)
   },
+  // power-up geactiveerd
+  power() {
+    if (!this.enabled) return
+    ;[523, 784, 1046].forEach((f, i) => tone(f, 0.1, 'square', 0.12, i * 0.05))
+  },
+  // scheet
+  fart() {
+    if (!this.enabled) return
+    const c = getCtx()
+    if (!c) return
+    const t0 = c.currentTime
+    const osc = c.createOscillator()
+    const g = c.createGain()
+    osc.type = 'sawtooth'
+    osc.frequency.setValueAtTime(160, t0)
+    osc.frequency.linearRampToValueAtTime(70, t0 + 0.5)
+    const lfo = c.createOscillator()
+    const lfoG = c.createGain()
+    lfo.frequency.value = 18
+    lfoG.gain.value = 35
+    lfo.connect(lfoG).connect(osc.frequency)
+    g.gain.setValueAtTime(0.0001, t0)
+    g.gain.linearRampToValueAtTime(0.24, t0 + 0.05)
+    g.gain.linearRampToValueAtTime(0.0001, t0 + 0.55)
+    osc.connect(g).connect(c.destination)
+    osc.start(t0)
+    lfo.start(t0)
+    osc.stop(t0 + 0.55)
+    lfo.stop(t0 + 0.55)
+  },
+  // boer
+  burp() {
+    if (!this.enabled) return
+    const c = getCtx()
+    if (!c) return
+    const t0 = c.currentTime
+    const osc = c.createOscillator()
+    const g = c.createGain()
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(115, t0)
+    osc.frequency.linearRampToValueAtTime(55, t0 + 0.32)
+    const lfo = c.createOscillator()
+    const lfoG = c.createGain()
+    lfo.frequency.value = 26
+    lfoG.gain.value = 24
+    lfo.connect(lfoG).connect(osc.frequency)
+    g.gain.setValueAtTime(0.24, t0)
+    g.gain.linearRampToValueAtTime(0.0001, t0 + 0.34)
+    osc.connect(g).connect(c.destination)
+    osc.start(t0)
+    lfo.start(t0)
+    osc.stop(t0 + 0.36)
+    lfo.stop(t0 + 0.36)
+  },
 }

@@ -33,59 +33,88 @@ body {
 #app {
   position: fixed;
   inset: 0;
-  display: flex;
-  flex-direction: column;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
-    env(safe-area-inset-left);
 }
 
-/* ---------- HUD ---------- */
+/* 3D-beeld vult het hele scherm */
+#stage {
+  position: absolute;
+  inset: 0;
+}
+#game {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+/* ---------- HUD-overlay bovenin ---------- */
 #hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: calc(8px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right)) 8px
+    calc(10px + env(safe-area-inset-left));
+  pointer-events: none;
+}
+.hud-left,
+.hud-right {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  background: var(--bg2);
-  flex: 0 0 auto;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .hud-item {
   display: flex;
   align-items: center;
   gap: 4px;
   font-weight: 700;
-  font-size: 16px;
+  font-size: 15px;
+  background: rgba(11, 16, 32, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 5px 11px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 #level {
   font-family: var(--arcade);
-  font-size: 11px;
+  font-size: 10px;
   color: var(--accent);
 }
 .hud-score {
-  margin-left: auto;
   font-family: var(--arcade);
   font-size: 13px;
   color: var(--yellow);
 }
 .hud-timer {
   font-family: var(--arcade);
-  font-size: 13px;
+  font-size: 12px;
   color: var(--pink);
 }
 #diamonds {
   gap: 3px;
 }
 .icon {
-  width: 20px;
-  height: 20px;
+  width: 19px;
+  height: 19px;
   display: block;
 }
 .hud-btn {
-  border: none;
-  background: var(--panel);
+  pointer-events: auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(11, 16, 32, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   color: var(--text);
-  width: 38px;
-  height: 38px;
-  border-radius: 9px;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -96,26 +125,11 @@ body {
   height: 20px;
 }
 
-/* ---------- Speelveld ---------- */
-#stage {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-#game {
-  width: 100%;
-  height: 100%;
-  display: block;
-  touch-action: none;
-}
-
 /* ---------- Rode flits bij een tik ---------- */
 .hitflash {
   position: absolute;
   inset: 0;
+  z-index: 35;
   pointer-events: none;
   background: radial-gradient(circle, rgba(220, 40, 40, 0) 38%, rgba(220, 40, 40, 0.55) 100%);
   opacity: 0;
@@ -128,8 +142,9 @@ body {
 /* ---------- Toast (RONDE x) ---------- */
 .toast {
   position: absolute;
-  top: 18%;
+  top: 16%;
   left: 50%;
+  z-index: 40;
   transform: translate(-50%, -10px);
   font-family: var(--arcade);
   font-size: 20px;
@@ -147,8 +162,9 @@ body {
 /* ---------- Haarlem-weetje ---------- */
 .factcard {
   position: absolute;
-  top: 12px;
+  top: calc(58px + env(safe-area-inset-top));
   left: 50%;
+  z-index: 40;
   transform: translate(-50%, -16px);
   width: min(92%, 460px);
   background: rgba(15, 21, 38, 0.94);
@@ -209,6 +225,7 @@ body {
 .screen {
   position: absolute;
   inset: 0;
+  z-index: 60;
   display: none;
   align-items: center;
   justify-content: center;
@@ -446,36 +463,37 @@ body {
   color: var(--yellow);
 }
 
-/* ---------- Bediening ---------- */
+/* ---------- Pijltjes (overlay linksonder) ---------- */
 #controls {
-  flex: 0 0 auto;
+  position: absolute;
+  left: calc(8px + env(safe-area-inset-left));
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 20;
   display: grid;
-  grid-template-columns: repeat(3, 70px);
-  grid-template-rows: repeat(2, 70px);
-  gap: 8px;
-  justify-content: center;
-  padding: 10px 0 14px;
+  grid-template-columns: repeat(3, 56px);
+  grid-template-rows: repeat(2, 56px);
+  gap: 6px;
 }
 .dpad-btn {
-  border: none;
-  background: var(--btn);
-  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(20, 27, 48, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #eef3ff;
   border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 0 #2a3650;
   touch-action: none;
 }
 .dpad-btn:active {
-  background: #5570a0;
-  transform: translateY(3px);
-  box-shadow: 0 1px 0 #2a3650;
+  background: rgba(85, 112, 160, 0.85);
+  transform: translateY(2px);
 }
 .dpad-btn svg {
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   pointer-events: none;
 }
 .dpad-up {
@@ -495,9 +513,64 @@ body {
   grid-row: 2;
 }
 
+/* ---------- Power-ups + scheet/boer (overlay rechtsonder) ---------- */
+#actions {
+  position: absolute;
+  right: calc(8px + env(safe-area-inset-right));
+  bottom: calc(12px + env(safe-area-inset-bottom));
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(2, 52px);
+  gap: 6px;
+  justify-items: end;
+}
+.act-btn {
+  width: 52px;
+  height: 52px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(20, 27, 48, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: var(--accent);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  cursor: pointer;
+  touch-action: none;
+  transition: transform 0.05s;
+}
+.act-btn svg {
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+}
+.act-btn span {
+  font-size: 9px;
+  font-weight: 700;
+  color: #eef3ff;
+  pointer-events: none;
+}
+.act-btn.fun {
+  color: var(--yellow);
+}
+.act-btn:active {
+  transform: translateY(2px) scale(0.96);
+}
+.act-btn.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(54, 214, 231, 0.7);
+}
+.act-btn.cooling {
+  opacity: 0.4;
+  filter: grayscale(0.6);
+}
+
 @media (min-width: 800px) and (pointer: fine) {
   #controls {
-    grid-template-columns: repeat(3, 58px);
-    grid-template-rows: repeat(2, 58px);
+    grid-template-columns: repeat(3, 52px);
+    grid-template-rows: repeat(2, 52px);
   }
 }

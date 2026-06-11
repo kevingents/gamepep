@@ -12,21 +12,12 @@
   </head>
   <body>
     <div id="app">
-      <header id="hud">
-        <div id="level" class="hud-item">RONDE 1</div>
-        <div id="hearts" class="hud-item"></div>
-        <div id="timer" class="hud-item hud-timer"></div>
-        <div id="score" class="hud-item hud-score">00000</div>
-        <div id="diamonds" class="hud-item"></div>
-        <button id="mute" class="hud-btn" aria-label="Geluid aan of uit"></button>
-      </header>
-
+      <!-- 3D-beeld vult het hele scherm -->
       <main id="stage">
         <canvas id="game"></canvas>
         <div id="hitflash" class="hitflash"></div>
         <div id="toast" class="toast"></div>
 
-        <!-- Haarlem-weetje (educatief) -->
         <div id="factcard" class="factcard">
           <div class="factcard-name" id="factName"></div>
           <div class="factcard-text" id="factText"></div>
@@ -88,12 +79,51 @@
         </div>
       </main>
 
+      <!-- HUD als overlay bovenin -->
+      <header id="hud">
+        <div class="hud-left">
+          <div id="level" class="hud-item">RONDE 1</div>
+          <div id="hearts" class="hud-item"></div>
+          <div id="timer" class="hud-item hud-timer"></div>
+        </div>
+        <div class="hud-right">
+          <div id="diamonds" class="hud-item"></div>
+          <div id="score" class="hud-item hud-score">00000</div>
+          <button id="mute" class="hud-btn" aria-label="Geluid aan of uit"></button>
+        </div>
+      </header>
+
+      <!-- Pijltjes als overlay linksonder -->
       <nav id="controls" aria-label="Bediening">
         <button class="dpad-btn dpad-up" data-dir="up" aria-label="Omhoog"></button>
         <button class="dpad-btn dpad-left" data-dir="left" aria-label="Naar links"></button>
         <button class="dpad-btn dpad-right" data-dir="right" aria-label="Naar rechts"></button>
         <button class="dpad-btn dpad-down" data-dir="down" aria-label="Omlaag"></button>
       </nav>
+
+      <!-- Power-ups + scheet/boer als overlay rechtsonder -->
+      <div id="actions">
+        <button class="act-btn" id="btnRadar" aria-label="Radar">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 12l6-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/></svg>
+          <span>Radar</span>
+        </button>
+        <button class="act-btn" id="btnSpeed" aria-label="Supersnel">
+          <svg viewBox="0 0 24 24"><path d="M13 2L4 14h6l-1 8 9-12h-6z" fill="currentColor"/></svg>
+          <span>Snel</span>
+        </button>
+        <button class="act-btn" id="btnGiant" aria-label="Reus">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.4" fill="currentColor"/><path d="M8 22l4-13 4 13z" fill="currentColor"/></svg>
+          <span>Reus</span>
+        </button>
+        <button class="act-btn fun" id="btnFart" aria-label="Scheet">
+          <svg viewBox="0 0 24 24"><path d="M5 15a3.5 3.5 0 013-3.5A4.5 4.5 0 0117 12a3 3 0 010 6H7a3 3 0 01-2-3z" fill="currentColor"/><path d="M19 9l2-1M20 12h2M19 15l2 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <span>Scheet</span>
+        </button>
+        <button class="act-btn fun" id="btnBurp" aria-label="Boer">
+          <svg viewBox="0 0 24 24"><circle cx="9" cy="14" r="3.4" fill="currentColor"/><circle cx="15" cy="10" r="2.6" fill="currentColor"/><circle cx="16.5" cy="16" r="1.7" fill="currentColor"/></svg>
+          <span>Boer</span>
+        </button>
+      </div>
     </div>
 
     <script type="module" src="/src/main.js"></script>

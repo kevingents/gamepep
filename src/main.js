@@ -23,8 +23,15 @@ const BASE_CREEPERS = 2
 const BASE_KIDS = 4
 const START = { x: 21.5, z: 24.5 } // op de straat naast de Grote Markt
 const START_YAW = 0 // kijk naar het noorden, de stad in
-const TAG_TIME = 70
+const TAG_TIME = 60
 const HIDE_TIME = 90
+const POWERS = {
+  radar: { dur: 8, cd: 14, t: 0, cool: 0 },
+  speed: { dur: 5, cd: 12, t: 0, cool: 0 },
+  giant: { dur: 6, cd: 15, t: 0, cool: 0 },
+}
+const POWER_KEYS = ['radar', 'speed', 'giant']
+let soundCool = 0
 const MODE_LABEL = { diamond: 'DIAMANTEN', tag: 'TIKKERTJE', hide: 'VERSTOPPEN' }
 
 // ---------- DOM ----------
@@ -178,6 +185,14 @@ podium.position.set(0, -0.125, 0)
 podium.receiveShadow = true
 podium.visible = false
 scene.add(podium)
+
+// radar-baken: lichtbundel boven het dichtstbijzijnde doel
+const radarBeacon = new THREE.Mesh(
+  new THREE.BoxGeometry(0.35, 7, 0.35),
+  new THREE.MeshBasicMaterial({ color: 0xff3b6b, transparent: true, opacity: 0.85 })
+)
+radarBeacon.visible = false
+scene.add(radarBeacon)
 
 // ---------- Spelstatus ----------
 let status = 'intro' // 'intro' | 'creator' | 'playing' | 'gameover'
@@ -342,7 +357,8 @@ function updatePlayer(dt) {
   faceZ = -Math.cos(yaw)
   const u = player.userData
   if (fwd !== 0) {
-    const sp = STEVE_SPEED * dt * (fwd > 0 ? 1 : 0.6) // achteruit iets langzamer
+    const boost = (POWERS.speed.t > 0 ? 1.95 : 1) * (POWERS.giant.t > 0 ? 1.45 : 1)
+    const sp = STEVE_SPEED * boost * dt * (fwd > 0 ? 1 : 0.6) // achteruit iets langzamer
     moveSteve(faceX * fwd * sp, faceZ * fwd * sp)
     walkPhase += dt * 11
     const sw = Math.sin(walkPhase) * 0.6
@@ -475,6 +491,60 @@ function roundClear() {
   showToast('RONDE ' + round)
   buildRound()
 }
+
+// ---------- Power-ups + scheet/boer ----------
+function activatePower(key) {
+  if (status !== 'playing') return
+  const p = POWERS[key]
+  if (p.cool > 0 || p.t > 0) return
+  p.t = p.dur
+  p.cool = p.cd
+  resumeAudio()
+  sfx.power()
+  // (later: ook naar je vriendjes sturen)
+}
+function nearestTarget() {
+  const arr = mode === 'diamond' ? diamonds.filter((d) => !d.collected) : npcs.filter((n) => !n.caught)
+  let best = null
+  let bd = Infinity
+  for (const t of arr) {
+    const dx = t.x - steveX
+    const dz = t.z - steveZ
+    const d = dx * dx + dz * dz
+    if (d < bd) {
+      bd = d
+      best = t
+    }
+  }
+  return best
+}
+function updateRadar() {
+  let show = false
+  if (status === 'playing' && POWERS.radar.t > 0) {
+    const t = nearestTarget()
+    if (t) {
+      radarBeacon.position.set(t.x, 3.4, t.z)
+      show = true
+    }
+  }
+  radarBeacon.visible = show
+}
+function updateActionButtons() {
+  for (const k of POWER_KEYS) {
+    const b = actionBtns[k]
+    if (!b) continue
+    b.classList.toggle('cooling', POWERS[k].cool > 0)
+    b.classList.toggle('active', POWERS[k].t > 0)
+  }
+}
+function playSocial(which) {
+  if (soundCool > 0) return
+  soundCool = 0.7
+  resumeAudio()
+  if (which === 'fart') sfx.fart()
+  else sfx.burp()
+  // (later: ook naar je vriendjes sturen)
+}
 function hit() {
   lives -= 1
   sfx.bonk()
@@ -501,8 +571,10 @@ function showHitFlash() {
 // First person: de camera staat op ooghoogte op de speler en kijkt mee in de
 // looprichting, zodat je echt door de straten van Haarlem loopt.
 function firstPersonCam() {
-  camera.position.set(steveX, 1.6, steveZ)
-  camera.lookAt(steveX + faceX * 2, 1.2, steveZ + faceZ * 2)
+  const eye = POWERS.giant.t > 0 ? 4.8 : 1.6 // als reus kijk je over de huizen heen
+  const dip = POWERS.giant.t > 0 ? 2.4 : 0.4
+  camera.position.set(steveX, eye, steveZ)
+  camera.lookAt(steveX + faceX * 2, eye - dip, steveZ + faceZ * 2)
 }
 function setOverviewCam() {
   camera.fov = 55
@@ -567,8 +639,10 @@ function setSceneVisible(v) {
 }
 function setChrome(v) {
   // HUD + bedieningsknoppen alleen tijdens het spelen tonen
-  document.getElementById('hud').style.visibility = v ? 'visible' : 'hidden'
-  document.getElementById('controls').style.visibility = v ? 'visible' : 'hidden'
+  const vis = v ? 'visible' : 'hidden'
+  document.getElementById('hud').style.visibility = vis
+  document.getElementById('controls').style.visibility = vis
+  document.getElementById('actions').style.visibility = vis
 }
 function showIntro() {
   status = 'intro'
@@ -627,6 +701,12 @@ function startGame(m) {
   score = 0
   lives = MAX_HEARTS
   round = 1
+  for (const k of POWER_KEYS) {
+    POWERS[k].t = 0
+    POWERS[k].cool = 0
+  }
+  soundCool = 0
+  radarBeacon.visible = false
   setCharacter(playerCfg)
   buildRound()
 }
@@ -892,6 +972,14 @@ $('nameInput').addEventListener('input', (e) => {
   updateNameTag()
 })
 
+// power-up + scheet/boer knoppen
+const actionBtns = { radar: $('btnRadar'), speed: $('btnSpeed'), giant: $('btnGiant') }
+$('btnRadar').addEventListener('click', () => activatePower('radar'))
+$('btnSpeed').addEventListener('click', () => activatePower('speed'))
+$('btnGiant').addEventListener('click', () => activatePower('giant'))
+$('btnFart').addEventListener('click', () => playSocial('fart'))
+$('btnBurp').addEventListener('click', () => playSocial('burp'))
+
 // ---------- Schermgrootte ----------
 function resize() {
   const stage = canvas.parentElement
@@ -916,10 +1004,20 @@ function frame(now) {
     if (mode === 'diamond') updateCreepers(dt)
     else updateNPCs(dt)
     checkCollisions()
+    for (const k of POWER_KEYS) {
+      const p = POWERS[k]
+      if (p.t > 0) p.t -= dt
+      if (p.cool > 0) p.cool -= dt
+    }
+    if (soundCool > 0) soundCool -= dt
+    updateActionButtons()
     if (status === 'playing' && mode !== 'diamond') {
       timeLeft -= dt
       hud.timer.textContent = fmtTime(timeLeft)
-      if (timeLeft <= 0) showGameOver()
+      if (timeLeft <= 0) {
+        if (mode === 'tag') showToast('Te laat! De kinderen kregen een punt')
+        showGameOver()
+      }
     }
     if (status === 'playing') {
       for (const d of diamonds) {
@@ -943,6 +1041,7 @@ function frame(now) {
     player.rotation.y += dt * 0.8
   }
   podium.visible = status === 'creator'
+  updateRadar()
   if (nameTag) {
     const show = player.visible && (status === 'playing' || status === 'creator')
     nameTag.visible = show
