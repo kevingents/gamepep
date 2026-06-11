@@ -131,6 +131,40 @@ export const sfx = {
     if (!this.enabled) return
     tone(170, 0.05, 'triangle', 0.04)
   },
+  // baby huilt: hoe hoger het niveau, hoe harder en vaker "waaah"
+  babyCry(level) {
+    if (!this.enabled) return
+    const c = getCtx()
+    if (!c) return
+    const vol = [0, 0.07, 0.13, 0.2][level] || 0.13
+    const n = level >= 2 ? 2 : 1
+    for (let i = 0; i < n; i++) {
+      const t0 = c.currentTime + i * 0.45
+      const osc = c.createOscillator()
+      const g = c.createGain()
+      osc.type = 'sawtooth'
+      osc.frequency.setValueAtTime(650 + level * 70, t0)
+      osc.frequency.linearRampToValueAtTime(380, t0 + 0.4)
+      const lfo = c.createOscillator()
+      const lg = c.createGain()
+      lfo.frequency.value = 7
+      lg.gain.value = 30
+      lfo.connect(lg).connect(osc.frequency)
+      g.gain.setValueAtTime(0.0001, t0)
+      g.gain.linearRampToValueAtTime(vol, t0 + 0.06)
+      g.gain.linearRampToValueAtTime(0.0001, t0 + 0.42)
+      osc.connect(g).connect(c.destination)
+      osc.start(t0)
+      lfo.start(t0)
+      osc.stop(t0 + 0.45)
+      lfo.stop(t0 + 0.45)
+    }
+  },
+  // baby blij na het eten
+  babyHappy() {
+    if (!this.enabled) return
+    ;[660, 880, 1100, 880, 1320].forEach((f, i) => tone(f, 0.09, 'sine', 0.1, i * 0.07))
+  },
   // achtergrondmuziek: 'vrolijk' (rustig) of 'feest' (huisfeestje met dansbeat)
   musicStart(style) {
     if (musicTimer) return

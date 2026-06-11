@@ -45,7 +45,7 @@ let powerups = [] // op te pakken items in de wereld
 let soundCool = 0
 const IS_TOUCH = 'ontouchstart' in window || (navigator.maxTouchPoints || 0) > 0
 let hintShown = false
-const MODE_LABEL = { diamond: 'DIAMANTEN', tag: 'TIKKERTJE', hide: 'VERSTOPPEN' }
+const MODE_LABEL = { diamond: 'DIAMANTEN', tag: 'TIKKERTJE', hide: 'VERSTOPPEN', baby: 'EETBABY' }
 
 // ---------- DOM ----------
 const canvas = document.getElementById('game')
@@ -277,6 +277,16 @@ let diamonds = []
 let creepers = []
 let npcs = []
 let secrets = [] // geheime plekken: verstopte schatten + gouden diamant
+// de eetbaby June: vang eten en breng het snel, anders huilt ze steeds harder
+let june = null
+let juneTag = null
+let juneX = 0
+let juneZ = 0
+let foods = []
+let carrying = null
+let hunger = 0
+let feeds = 0
+let cryTimer = 0
 let totalDiamonds = 0
 let totalKids = 0
 let timeLeft = 0
@@ -349,6 +359,10 @@ function clearRound() {
   npcs = []
   powerups = []
   secrets = []
+  foods = []
+  june = null
+  juneTag = null
+  carrying = null
 }
 
 // geheime plekken: een verstopte schatkist of gouden diamant, ver weg
@@ -377,6 +391,118 @@ function makeGoldDiamond() {
   m.scale.set(1, 1.4, 1)
   m.castShadow = true
   return m
+}
+// June: baby-meisje in een kinderstoel, met strikje
+function makeJune() {
+  const g = new THREE.Group()
+  const wood = new THREE.MeshLambertMaterial({ color: 0xb9774a })
+  const pink = new THREE.MeshLambertMaterial({ color: 0xff8fc0 })
+  const headMat = new THREE.MeshLambertMaterial({ color: 0xffd9b3 })
+  const eye = new THREE.MeshLambertMaterial({ color: 0x20202c })
+  // kinderstoel
+  for (const [px, pz] of [[-0.3, -0.3], [0.3, -0.3], [-0.3, 0.3], [0.3, 0.3]]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.9, 0.09), wood)
+    leg.position.set(px, 0.45, pz)
+    g.add(leg)
+  }
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.09, 0.72), wood)
+  seat.position.y = 0.9
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.6, 0.09), wood)
+  back.position.set(0, 1.25, 0.32)
+  const tray = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.07, 0.4), wood)
+  tray.position.set(0, 1.35, -0.42)
+  g.add(seat, back, tray)
+  // baby June
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.5, 0.4), pink)
+  body.position.y = 1.18
+  const lArm = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.34, 0.14), pink)
+  const rArm = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.34, 0.14), pink)
+  lArm.position.set(-0.31, 1.32, -0.05)
+  rArm.position.set(0.31, 1.32, -0.05)
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.42, 0.42), headMat)
+  head.position.y = 1.68
+  const lEye = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 0.03), eye)
+  const rEye = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 0.03), eye)
+  lEye.position.set(-0.1, 1.72, -0.22)
+  rEye.position.set(0.1, 1.72, -0.22)
+  // strikje
+  const bow1 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 0.1), pink)
+  const bow2 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 0.1), pink)
+  bow1.position.set(-0.09, 1.95, 0)
+  bow2.position.set(0.09, 1.95, 0)
+  g.add(body, lArm, rArm, head, lEye, rEye, bow1, bow2)
+  g.traverse((o) => {
+    if (o.isMesh) o.castShadow = true
+  })
+  g.userData = { headMat, lArm, rArm }
+  return g
+}
+function spawnJune() {
+  let jx = START.x + 3.5
+  let jz = START.z
+  outer: for (let r = 3; r < 9; r++) {
+    for (const [ox, oz] of [[r, 0], [-r, 0], [0, r], [0, -r]]) {
+      const cx = Math.floor(START.x + ox)
+      const cz = Math.floor(START.z + oz)
+      if (!world.solids.has(cx + ',' + cz)) {
+        jx = cx + 0.5
+        jz = cz + 0.5
+        break outer
+      }
+    }
+  }
+  juneX = jx
+  juneZ = jz
+  june = makeJune()
+  june.position.set(jx, 0, jz)
+  roundGroup.add(june)
+  juneTag = makeTagSprite('June')
+  juneTag.position.set(jx, 2.8, jz)
+  roundGroup.add(juneTag)
+}
+// eten om te vangen: appel, banaan, flesje melk, koekje
+const FOOD_TYPES = [
+  { key: 'appel', label: 'Appel' },
+  { key: 'banaan', label: 'Banaan' },
+  { key: 'flesje', label: 'Flesje melk' },
+  { key: 'koekje', label: 'Koekje' },
+]
+function makeFood(key) {
+  const g = new THREE.Group()
+  if (key === 'appel') {
+    const a = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), new THREE.MeshLambertMaterial({ color: 0xe63946 }))
+    const leaf = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.06, 0.06), new THREE.MeshLambertMaterial({ color: 0x3f8a2e }))
+    leaf.position.y = 0.24
+    g.add(a, leaf)
+  } else if (key === 'banaan') {
+    const m = new THREE.MeshLambertMaterial({ color: 0xffd166 })
+    const b1 = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.12, 0.12), m)
+    const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.16, 0.12), m)
+    b1.rotation.z = 0.3
+    b2.position.set(0.2, 0.1, 0)
+    g.add(b1, b2)
+  } else if (key === 'flesje') {
+    const fles = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.38, 8), new THREE.MeshLambertMaterial({ color: 0xf4f6f8 }))
+    const dop = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.12, 8), new THREE.MeshLambertMaterial({ color: 0xff8c42 }))
+    dop.position.y = 0.25
+    g.add(fles, dop)
+  } else {
+    const k = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.08, 10), new THREE.MeshLambertMaterial({ color: 0x9a6a3e }))
+    g.add(k)
+  }
+  g.traverse((o) => {
+    if (o.isMesh) o.castShadow = true
+  })
+  return g
+}
+function spawnFood(taken) {
+  const c = freeCell(taken)
+  if (!c) return
+  const t = FOOD_TYPES[(Math.random() * FOOD_TYPES.length) | 0]
+  const mesh = makeFood(t.key)
+  mesh.position.set(c.x, 0.85, c.z)
+  roundGroup.add(mesh)
+  foods.push({ type: t, mesh, x: c.x, z: c.z, baseY: 0.85, phase: Math.random() * 6.28, taken: false, respawnAt: 0 })
 }
 function spawnSecrets(taken) {
   const SECRETS = [
@@ -447,6 +573,13 @@ function buildRound() {
       roundGroup.add(m)
       creepers.push({ mesh: m, x: c.x, z: c.z, heading: Math.random() * 6.28, timer: 0 })
     }
+  } else if (mode === 'baby') {
+    spawnJune()
+    for (let i = 0; i < 8; i++) spawnFood(taken)
+    hunger = 0.35
+    feeds = 0
+    carrying = null
+    cryTimer = 5
   } else {
     totalKids = BASE_KIDS + (round - 1)
     for (let i = 0; i < totalKids; i++) {
@@ -695,6 +828,37 @@ function checkCollisions() {
         }
       }
     }
+  } else if (mode === 'baby') {
+    if (!carrying) {
+      for (const f of foods) {
+        if (f.taken) continue
+        const dx = f.x - steveX
+        const dz = f.z - steveZ
+        if (dx * dx + dz * dz < 0.6 * 0.6) {
+          f.taken = true
+          f.mesh.visible = false
+          f.respawnAt = performance.now() + 9000
+          carrying = f.type
+          sfx.coin()
+          showToast(f.type.label + ' gepakt! Snel naar June!')
+          updateHud()
+          break
+        }
+      }
+    } else {
+      const dx = juneX - steveX
+      const dz = juneZ - steveZ
+      if (dx * dx + dz * dz < 1.3 * 1.3) {
+        carrying = null
+        feeds += 1
+        score += 100
+        hunger = Math.max(0.05, hunger - 0.5)
+        sfx.babyHappy()
+        showToast('Mmm! June heeft gegeten')
+        updateHud()
+        if (feeds % 5 === 0) roundClear() // elke 5 hapjes een ronde verder (sneller honger)
+      }
+    }
   } else {
     // verstoppertje: gevonden kinderen tellen mee
     for (const n of npcs) {
@@ -745,7 +909,11 @@ function nearestTarget() {
       ? Object.values(mpPlayers)
       : mode === 'diamond'
         ? diamonds.filter((d) => !d.collected)
-        : npcs.filter((n) => !n.caught)
+        : mode === 'baby'
+          ? carrying
+            ? [{ x: juneX, z: juneZ }] // met eten in je hand wijst de radar naar June
+            : foods.filter((f) => !f.taken)
+          : npcs.filter((n) => !n.caught)
   let best = null
   let bd = Infinity
   for (const t of arr) {
@@ -1130,11 +1298,28 @@ function fmtTime(t) {
   const s = Math.max(0, Math.ceil(t))
   return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0')
 }
+const foodIcon =
+  '<svg viewBox="0 0 24 24" class="icon"><circle cx="12" cy="14" r="7" fill="#e63946"/><path d="M12 7c0-2 1.5-3.5 3.5-3.5" fill="none" stroke="#3f8a2e" stroke-width="2" stroke-linecap="round"/></svg>'
+function updateHungerBar() {
+  const pct = Math.round(hunger * 100)
+  const col = hunger > 0.72 ? '#ff5b5b' : hunger > 0.48 ? '#ffb04a' : '#6fe08a'
+  hud.timer.innerHTML = '<span class="hbar"><i style="width:' + pct + '%;background:' + col + '"></i></span>'
+}
 function updateHud() {
   const isD = mode === 'diamond'
   const timed = mode === 'hide' || (mode === 'tag' && tagLimit > 0)
-  hud.hearts.style.display = isD ? 'flex' : 'none'
-  hud.timer.style.display = timed ? 'flex' : 'none'
+  hud.hearts.style.display = isD || mode === 'baby' ? 'flex' : 'none'
+  hud.timer.style.display = timed || mode === 'baby' ? 'flex' : 'none'
+  if (mode === 'baby') {
+    let h = ''
+    for (let i = 0; i < MAX_HEARTS; i++) h += heartIcon(i < lives)
+    hud.hearts.innerHTML = h
+    hud.diamonds.innerHTML = foodIcon + '<span>' + feeds + '</span>'
+    updateHungerBar()
+    hud.score.textContent = String(score).padStart(5, '0')
+    hud.level.textContent = MODE_LABEL[mode] + ' R' + round
+    return
+  }
   if (isD) {
     let h = ''
     for (let i = 0; i < MAX_HEARTS; i++) h += heartIcon(i < lives)
@@ -1530,6 +1715,7 @@ $('btnTag2').addEventListener('click', () => startGame('tag', 120))
 $('btnTag3').addEventListener('click', () => startGame('tag', 180))
 $('btnTagBack').addEventListener('click', showIntro)
 $('btnHide').addEventListener('click', () => startGame('hide'))
+$('btnBaby').addEventListener('click', () => startGame('baby'))
 $('btnCreator').addEventListener('click', showCreator)
 $('btnCity').addEventListener('click', showCityPicker)
 $('btnCityBack').addEventListener('click', showIntro)
@@ -1650,6 +1836,54 @@ function frame(now) {
         itMarker.position.set(it.x, 2.6, it.z)
         itMarker.rotation.y += dt * 2
       } else itMarker.visible = false
+    }
+    if (status === 'playing' && mode === 'baby') {
+      hunger = Math.min(1, hunger + (0.014 + 0.005 * (round - 1)) * dt) // elke ronde sneller honger
+      const stage = hunger > 0.92 ? 3 : hunger > 0.72 ? 2 : hunger > 0.48 ? 1 : 0
+      cryTimer -= dt
+      if (stage > 0 && cryTimer <= 0) {
+        sfx.babyCry(stage) // hoe bozer, hoe harder en vaker
+        cryTimer = stage === 1 ? 6 : stage === 2 ? 3.5 : 1.8
+      }
+      if (june) {
+        const u = june.userData
+        u.headMat.color.setHex(stage === 0 ? 0xffd9b3 : stage === 1 ? 0xf5b89a : stage === 2 ? 0xe8907a : 0xe06a5a)
+        if (stage >= 2) {
+          const w = Math.sin(now * 0.02) * 0.8 // boos met de armpjes zwaaien
+          u.lArm.rotation.z = w
+          u.rArm.rotation.z = -w
+        } else {
+          u.lArm.rotation.z = 0
+          u.rArm.rotation.z = 0
+        }
+      }
+      if (hunger >= 1) {
+        lives -= 1
+        hunger = 0.55
+        sfx.babyCry(3)
+        showHitFlash()
+        showToast('June huilt heel hard! Snel, eten halen!')
+        updateHud()
+        if (lives <= 0) showGameOver()
+      }
+      updateHungerBar()
+      for (const f of foods) {
+        if (f.taken) {
+          if (now >= f.respawnAt) {
+            const c = freeCell(new Set())
+            if (c) {
+              f.x = c.x
+              f.z = c.z
+              f.taken = false
+              f.mesh.visible = true
+              f.mesh.position.set(c.x, f.baseY, c.z)
+            }
+          }
+          continue
+        }
+        f.mesh.rotation.y += dt * 1.5
+        f.mesh.position.y = f.baseY + Math.sin(now * 0.003 + f.phase) * 0.12
+      }
     }
     if (status === 'playing' && (mode === 'hide' || (mode === 'tag' && tagLimit > 0))) {
       timeLeft -= dt
