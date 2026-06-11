@@ -131,29 +131,50 @@ function buildLandmark(ctx, lm) {
           const cx = x0 + i
           const cz = z0 + j
           solidRect(cx, cz, 1, 1)
-          box('#cf7a3a', 1, 2.5, 1, cx + 0.5, 0, cz + 0.5)
+          box('#a87f4f', 1, 2.5, 1, cx + 0.5, 0, cz + 0.5) // licht metselwerk uit 1983
         }
-      // deuropening: balk erboven + blauwe kozijnen
-      box('#cf7a3a', 1, 0.6, 1, x0 + 2.5, 1.9, z0 + 0.5)
-      box('#3a6ff7', 0.16, 1.9, 0.9, x0 + 2.04, 0, z0 + 0.5)
-      box('#3a6ff7', 0.16, 1.9, 0.9, x0 + 2.96, 0, z0 + 0.5)
-      // grote ramen aan de voorkant
-      for (const wxx of [x0 + 0.5, x0 + 1.5, x0 + 3.5, x0 + 4.5]) {
-        box('#f4f1e8', 0.7, 0.9, 0.1, wxx, 0.8, z0 + 0.01)
-        box('#bfe4ff', 0.56, 0.74, 0.12, wxx, 0.88, z0 + 0.005)
+      // deuropening: balk erboven + vrolijk gekleurde kozijnen (Jenaplan)
+      box('#a87f4f', 1, 0.6, 1, x0 + 2.5, 1.9, z0 + 0.5)
+      box('#e63946', 0.16, 1.9, 0.9, x0 + 2.04, 0, z0 + 0.5)
+      box('#ffd166', 0.16, 1.9, 0.9, x0 + 2.96, 0, z0 + 0.5)
+      // doorlopende raamstroken (het gebouw is uit 1983)
+      for (const wxx of [x0 + 1, x0 + 4]) {
+        box('#f4f1e8', 1.9, 0.84, 0.08, wxx, 0.76, z0 + 0.015)
+        box('#bfe4ff', 1.74, 0.66, 0.1, wxx, 0.85, z0 + 0.01)
       }
-      // dak
-      box('#8f5024', 5.6, 0.12, 4.6, x0 + 2.5, 2.42, z0 + 2)
-      box('#c84b3a', 5.4, 0.2, 4.4, x0 + 2.5, 2.54, z0 + 2)
-      // binnen: schoolbord, tafeltjes met stoeltjes en een boekenkast
+      // plat dak met lichte rand (1983-stijl)
+      box('#e8e4da', 5.6, 0.14, 4.6, x0 + 2.5, 2.42, z0 + 2)
+      box('#6e6e72', 5.3, 0.16, 4.3, x0 + 2.5, 2.56, z0 + 2)
+      // naambord "Veronicaschool" op de gevel
+      const sc = document.createElement('canvas')
+      sc.width = 512
+      sc.height = 96
+      const s2 = sc.getContext('2d')
+      s2.fillStyle = '#1f4d3a'
+      s2.fillRect(0, 0, 512, 96)
+      s2.strokeStyle = '#ffe066'
+      s2.lineWidth = 6
+      s2.strokeRect(4, 4, 504, 88)
+      s2.fillStyle = '#ffffff'
+      s2.font = 'bold 52px Trebuchet MS, Arial, sans-serif'
+      s2.textAlign = 'center'
+      s2.textBaseline = 'middle'
+      s2.fillText('Veronicaschool', 256, 52)
+      const signTex = new THREE.CanvasTexture(sc)
+      const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 0.5), new THREE.MeshBasicMaterial({ map: signTex }))
+      sign.position.set(x0 + 2.5, 2.12, z0 - 0.03)
+      sign.rotation.y = Math.PI
+      group.add(sign)
+      // binnen: de kring (Jenaplan!), schoolbord, tafel en boekenkast
       box('#1f4d3a', 1.9, 0.9, 0.08, x0 + 2.5, 0.9, z0 + 3.04)
-      for (const [tx, tz] of [[1.3, 1.6], [3.7, 1.6], [1.3, 2.5], [3.7, 2.5]]) {
-        box('#b9774a', 0.6, 0.08, 0.45, x0 + tx, 0.5, z0 + tz)
-        box('#b9774a', 0.07, 0.5, 0.07, x0 + tx - 0.24, 0, z0 + tz)
-        box('#b9774a', 0.07, 0.5, 0.07, x0 + tx + 0.24, 0, z0 + tz)
-        box('#e63946', 0.3, 0.34, 0.3, x0 + tx - 0.62, 0, z0 + tz)
+      const stoelCols = ['#e63946', '#ffd166', '#3a6ff7', '#4caf50']
+      for (let i = 0; i < 8; i++) {
+        const ka = (i / 8) * Math.PI * 2
+        box(stoelCols[i % 4], 0.28, 0.34, 0.28, x0 + 2.5 + Math.cos(ka) * 0.85, 0, z0 + 2 + Math.sin(ka) * 0.85)
       }
-      box('#8a5a33', 0.4, 1.5, 1.3, x0 + 3.72, 0, z0 + 2)
+      box('#b9774a', 0.7, 0.08, 0.5, x0 + 1.2, 0.5, z0 + 2.7)
+      box('#b9774a', 0.07, 0.5, 0.07, x0 + 1.2, 0, z0 + 2.7)
+      box('#8a5a33', 0.4, 1.5, 1.3, x0 + 3.72, 0, z0 + 2.7)
       // vlaggenmast + schoolplein: hek, zandbak en glijbaan
       box('#dddddd', 0.08, 2.8, 0.08, x0 - 0.6, 0, z0 - 0.6)
       box('#ffd166', 0.9, 0.5, 0.06, x0 - 0.2, 2.6, z0 - 0.6)
@@ -167,6 +188,7 @@ function buildLandmark(ctx, lm) {
       box('#f0dca0', 1.5, 0.12, 1.5, x0 + 1, 0, z0 - 2) // zandbak
       box('#b9774a', 1.7, 0.1, 0.12, x0 + 1, 0.12, z0 - 2.75)
       box('#b9774a', 1.7, 0.1, 0.12, x0 + 1, 0.12, z0 - 1.25)
+      for (let hi = 0; hi < 5; hi++) box('#f4f1e8', 0.4, 0.02, 0.4, x0 + 2.5, 0.06, z0 - 1.1 - hi * 0.5) // hinkelpad
       // glijbaan: trapje + schuine baan
       box('#9aa0a8', 0.4, 1.0, 0.3, x0 + 4, 0, z0 - 1.4)
       const slide = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 1.7), matOf('#3a6ff7'))
@@ -615,6 +637,30 @@ export function buildCity(group, GRID, city) {
       const vlagCols = ['#e63946', '#ffd166', '#3a6ff7', '#4caf50', '#ff7ab6']
       for (let i = 0; i < 5; i++) box(vlagCols[i], 0.2, 0.24, 0.05, GH - 0.9 + i * 0.7, 2.26, z + 0.5)
     }
+    // de singel om het centrum (zoals de echte vesten), aansluitend op het Spaarne
+    const singelRow = (zc, xa, xb) => {
+      for (let px = xa; px <= xb; px++) {
+        if (distAxis[px] <= 1) deckCell(px, zc)
+        else water(px, zc)
+      }
+    }
+    singelRow(59, 59, Math.round(spaarne(59)) - 3) // noordkant (de Nieuwe Gracht)
+    singelRow(109, 59, Math.round(spaarne(109)) - 3) // zuidkant (de Kampersingel)
+    for (let pz = 60; pz <= 108; pz++) {
+      if (distAxis[pz] <= 1) deckCell(59, pz)
+      else water(59, pz) // westkant
+    }
+    // steegjes door het centrum, zoals de Jansstraat en de Zijlstraat
+    reserveRect(78, 30, 1, 43)
+    for (let pz = 30; pz < 73; pz++) {
+      if (distAxis[pz] <= 2) continue
+      box('#cdc4b0', 1, 0.05, 1, 78.5, 0, pz + 0.5)
+    }
+    reserveRect(60, 79, 12, 1)
+    for (let px = 60; px < 72; px++) {
+      if (distAxis[px] <= 2) continue
+      box('#cdc4b0', 1, 0.05, 1, px + 0.5, 0, 79.5)
+    }
     // de Haarlemmerhout: het oudste stadsbos, met een vijver
     reserveRect(40, 138, 26, 16)
     bigPond(58, 146, 4, 2.5)
@@ -972,8 +1018,9 @@ export const CITIES = [
       { name: 'Amsterdamse Poort', type: 'gate', x: 26, z: 13, labelY: 6.4, fact: 'De Amsterdamse Poort is meer dan 600 jaar oud. Hij staat vlak bij het Spaarne, net als in het echt.' },
       { name: 'Lange Herenvest 16', type: 'home', x: 27.5, z: 14.5, labelY: 5.0, labelScale: 1.2, fact: 'Dit is jullie huis aan de Lange Herenvest, vlak bij de Amsterdamse Poort en het Spaarne. Zwaai maar naar de buren!' },
       { name: 'Station Haarlem', type: 'station', x: 19.5, z: 6, labelY: 5.6, fact: 'Vanaf Haarlem reed in 1839 de allereerste trein van Nederland!' },
-      { name: 'Veronicaschool', type: 'school', x: 9, z: 30, labelY: 5.8, labelScale: 1.3, fact: 'Dit is jouw school! Je kunt naar binnen lopen: binnen staan de tafeltjes en het schoolbord, buiten zijn de zandbak en de glijbaan.' },
-      { name: 'Frans Hals Museum', type: 'museum', x: 16.6, z: 27, opts: { color: '#8a4632' }, labelY: 6.0, fact: 'In het Frans Hals Museum hangen schilderijen van Frans Hals, de beroemdste schilder van Haarlem.' },
+      { name: 'Veronicaschool', type: 'school', x: 23.4, z: 26.6, labelY: 5.8, labelScale: 1.3, fact: 'Dit is jouw school aan de Antoniestraat, midden in Haarlem! Het is een Jenaplanschool: binnen zitten ze in de kring. Je kunt naar binnen lopen!' },
+      { name: 'Frans Hals Museum', type: 'museum', x: 16.6, z: 26.2, opts: { color: '#8a4632' }, labelY: 6.0, fact: 'In het Frans Hals Museum hangen schilderijen van Frans Hals, de beroemdste schilder van Haarlem.' },
+      { name: 'Nieuwe Gracht', type: 'label', x: 18, z: 14.4, labelY: 1.8, fact: 'De Nieuwe Gracht hoort bij de singels: het water dat als een ring om het centrum van Haarlem ligt. Jullie huis staat aan zo’n vest!' },
       { name: 'Grote Houtstraat', type: 'label', x: 21, z: 27, labelY: 3.2, fact: 'De Grote Houtstraat is de gezelligste winkelstraat van Haarlem. Auto’s mogen er niet rijden.' },
       { name: 'Haarlemmerhout', type: 'label', x: 13, z: 36.5, labelY: 3.0, fact: 'De Haarlemmerhout is het oudste stadsbos van Nederland. Lekker rennen en verstoppen tussen de bomen!' },
     ],
