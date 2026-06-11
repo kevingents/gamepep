@@ -8,6 +8,11 @@
     />
     <meta name="theme-color" content="#0b1020" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Diamant NL" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+    <link rel="icon" href="/icon.svg" />
     <title>Diamant Nederland</title>
   </head>
   <body>
@@ -37,6 +42,7 @@
             <button class="arcade-btn" id="btnMulti">SAMEN SPELEN</button>
             <button class="arcade-btn alt" id="btnCity">ANDERE STAD</button>
             <button class="arcade-btn alt" id="btnCreator">MAAK JE POPJE</button>
+            <button class="arcade-btn alt" id="btnSettings">INSTELLINGEN</button>
           </div>
         </div>
 
@@ -90,6 +96,18 @@
               <button class="arcade-btn small-btn" id="btnJoinRoom">DOE MEE</button>
             </div>
             <button class="arcade-btn alt" id="btnLobbyBack">TERUG</button>
+          </div>
+        </div>
+
+        <!-- Instellingen -->
+        <div id="settings" class="screen">
+          <div class="arcade">
+            <h1 class="arcade-title small">INSTELLINGEN</h1>
+            <button class="arcade-btn" id="btnToggleSound">Geluid: AAN</button>
+            <button class="arcade-btn" id="btnToggleMusic">Muziek: AAN</button>
+            <button class="arcade-btn" id="btnToggleLight">Lichte modus: UIT</button>
+            <p class="arcade-sub">Lichte modus = sneller op een wat oudere telefoon.</p>
+            <button class="arcade-btn alt" id="btnSettingsBack">TERUG</button>
           </div>
         </div>
       </main>

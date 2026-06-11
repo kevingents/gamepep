@@ -1,6 +1,10 @@
 // Kleine geluidjes met de Web Audio API - geen geluidsbestanden nodig.
 
 let audioCtx = null
+let musicTimer = null
+let musicStep = 0
+// vrolijk kort loopje
+const MELODY = [392, 0, 523, 587, 523, 440, 392, 0, 440, 0, 587, 659, 523, 440, 392, 0]
 
 function getCtx() {
   if (!audioCtx) {
@@ -118,5 +122,30 @@ export const sfx = {
     lfo.start(t0)
     osc.stop(t0 + 0.36)
     lfo.stop(t0 + 0.36)
+  },
+  // zacht voetstapje
+  step() {
+    if (!this.enabled) return
+    tone(170, 0.05, 'triangle', 0.04)
+  },
+  // vrolijk achtergrondmuziekje (loop)
+  musicStart() {
+    if (musicTimer) return
+    musicStep = 0
+    musicTimer = setInterval(() => {
+      if (!this.enabled) return
+      const f = MELODY[musicStep % MELODY.length]
+      musicStep++
+      if (f) {
+        tone(f, 0.16, 'triangle', 0.05)
+        if (musicStep % 4 === 1) tone(f / 2, 0.3, 'sine', 0.04)
+      }
+    }, 250)
+  },
+  musicStop() {
+    if (musicTimer) {
+      clearInterval(musicTimer)
+      musicTimer = null
+    }
   },
 }

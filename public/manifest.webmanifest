@@ -1,0 +1,16 @@
+{
+  "name": "Diamant Nederland",
+  "short_name": "Diamant NL",
+  "description": "Loop in first person door Nederlandse steden, pak diamanten, speel tikkertje en verstoppertje en doe samen met vriendjes.",
+  "lang": "nl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

@@ -152,6 +152,34 @@ function saveCity(i) {
   } catch (e) {}
 }
 const cityKey = () => CITIES[cityIndex].key
+
+// instellingen (lichte modus, muziek, geluid)
+let lichtMode = false
+let musicOn = true
+let footTimer = 0
+function loadSettings() {
+  try {
+    lichtMode = localStorage.getItem('haarlem_licht') === '1'
+    musicOn = localStorage.getItem('haarlem_muziek') !== '0'
+    sfx.enabled = localStorage.getItem('haarlem_geluid') !== '0'
+  } catch (e) {}
+}
+function saveSettings() {
+  try {
+    localStorage.setItem('haarlem_licht', lichtMode ? '1' : '0')
+    localStorage.setItem('haarlem_muziek', musicOn ? '1' : '0')
+    localStorage.setItem('haarlem_geluid', sfx.enabled ? '1' : '0')
+  } catch (e) {}
+}
+function applyQuality() {
+  renderer.setPixelRatio(lichtMode ? 1 : Math.min(window.devicePixelRatio || 1, 2))
+  renderer.shadowMap.enabled = !lichtMode
+  sun.castShadow = !lichtMode
+  resize()
+}
+function startMusicMaybe() {
+  if (musicOn && sfx.enabled) sfx.musicStart()
+}
 function buildCurrentCity() {
   for (const child of [...worldGroup.children]) {
     worldGroup.remove(child)
@@ -376,6 +404,11 @@ function updatePlayer(dt) {
     const boost = (POWERS.speed.t > 0 ? 1.95 : 1) * (POWERS.giant.t > 0 ? 1.45 : 1)
     const sp = STEVE_SPEED * boost * dt * (fwd > 0 ? 1 : 0.6) // achteruit iets langzamer
     moveSteve(faceX * fwd * sp, faceZ * fwd * sp)
+    footTimer -= dt
+    if (footTimer <= 0) {
+      sfx.step()
+      footTimer = 0.32
+    }
     walkPhase += dt * 11
     const sw = Math.sin(walkPhase) * 0.6
     u.lLeg.rotation.x = sw
@@ -573,9 +606,10 @@ function mpProfile() {
 }
 function startMultiplayer(code, isCreator) {
   resumeAudio()
+  startMusicMaybe()
   mpCode = code
   mpCitySynced = isCreator
-  currentIt = isCreator ? mpId : null
+  currentIt = null // wordt de laagste id (iedereen rekent hetzelfde)
   myPoints = 0
   clearRemotes()
   if (isCreator) buildCurrentCity()
@@ -699,6 +733,11 @@ function mpOnPresence(state) {
     }
   }
   for (const id in mpPlayers) if (!present[id]) removeRemote(id)
+  // wie is 'm? bij onbekend of weggegaan: de laagste id (iedereen rekent hetzelfde)
+  if (!currentIt || !present[currentIt]) {
+    const ids = Object.keys(present).sort()
+    if (ids.length) currentIt = ids[0]
+  }
   if (!mpCitySynced) {
     for (const id in present) {
       if (id === mpId) continue
@@ -766,6 +805,25 @@ function showLobby() {
   hideFact()
   $('roomInput').value = ''
   $('lobby').classList.add('show')
+}
+function showSettings() {
+  resumeAudio()
+  status = 'settings'
+  setSceneVisible(true)
+  setChrome(false)
+  $('mpbar').style.display = 'none'
+  document.getElementById('hud').style.display = ''
+  player.visible = false
+  setOverviewCam()
+  hideAllScreens()
+  hideFact()
+  updateSettingsUI()
+  $('settings').classList.add('show')
+}
+function updateSettingsUI() {
+  $('btnToggleLight').textContent = 'Lichte modus: ' + (lichtMode ? 'AAN' : 'UIT')
+  $('btnToggleMusic').textContent = 'Muziek: ' + (musicOn ? 'AAN' : 'UIT')
+  $('btnToggleSound').textContent = 'Geluid: ' + (sfx.enabled ? 'AAN' : 'UIT')
 }
 function hit() {
   lives -= 1
@@ -854,6 +912,7 @@ function hideAllScreens() {
   $('gameover').classList.remove('show')
   $('cityscreen').classList.remove('show')
   $('lobby').classList.remove('show')
+  $('settings').classList.remove('show')
 }
 function setSceneVisible(v) {
   ground.visible = v
@@ -871,6 +930,7 @@ function showIntro() {
   status = 'intro'
   setSceneVisible(true)
   setChrome(false)
+  sfx.musicStop()
   $('mpbar').style.display = 'none'
   document.getElementById('hud').style.display = ''
   player.visible = false
@@ -923,6 +983,7 @@ function startGame(m) {
   document.getElementById('hud').style.display = ''
   resumeAudio()
   sfx.start()
+  startMusicMaybe()
   status = 'playing'
   setSceneVisible(true)
   setChrome(true)
@@ -1131,7 +1192,10 @@ function updateMuteBtn() {
 }
 muteBtn.addEventListener('click', () => {
   sfx.enabled = !sfx.enabled
+  if (!sfx.enabled) sfx.musicStop()
+  else if (musicOn && status === 'playing') sfx.musicStart()
   updateMuteBtn()
+  saveSettings()
 })
 
 // ---------- Bediening ----------
@@ -1221,6 +1285,31 @@ $('btnJoinRoom').addEventListener('click', () => {
 $('btnLobbyBack').addEventListener('click', showIntro)
 $('btnStop').addEventListener('click', stopMultiplayer)
 
+// instellingen
+$('btnSettings').addEventListener('click', showSettings)
+$('btnSettingsBack').addEventListener('click', showIntro)
+$('btnToggleLight').addEventListener('click', () => {
+  lichtMode = !lichtMode
+  applyQuality()
+  saveSettings()
+  updateSettingsUI()
+})
+$('btnToggleMusic').addEventListener('click', () => {
+  musicOn = !musicOn
+  if (!musicOn) sfx.musicStop()
+  else if (sfx.enabled && status === 'playing') sfx.musicStart()
+  saveSettings()
+  updateSettingsUI()
+})
+$('btnToggleSound').addEventListener('click', () => {
+  sfx.enabled = !sfx.enabled
+  if (!sfx.enabled) sfx.musicStop()
+  else if (musicOn && status === 'playing') sfx.musicStart()
+  updateMuteBtn()
+  saveSettings()
+  updateSettingsUI()
+})
+
 // ---------- Schermgrootte ----------
 function resize() {
   const stage = canvas.parentElement
@@ -1300,7 +1389,8 @@ function frame(now) {
 
 // ---------- Start ----------
 function init() {
-  resize()
+  loadSettings()
+  applyQuality()
   updateMuteBtn()
   updateNameTag()
   showIntro()

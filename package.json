@@ -1,9 +1,9 @@
 {
-  "name": "diamant-doolhof",
+  "name": "diamant-nederland",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Diamant Doolhof - een web-game in Minecraft-stijl voor mobiel",
+  "description": "Diamant Nederland - een 3D web-game door Nederlandse steden, voor mobiel",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
