@@ -2,7 +2,7 @@ import './style.css'
 import * as THREE from 'three'
 import { sfx, resumeAudio } from './sfx.js'
 import { buildHaarlem } from './haarlem.js'
-import { makeCharacter, loadCfg, saveCfg, OPTIONS, PART_LABELS } from './character.js'
+import { makeCharacter, loadCfg, saveCfg, PARTS } from './character.js'
 import { getTop, topScore, qualifies, addScore } from './scores.js'
 
 // =====================================================================
@@ -143,6 +143,16 @@ function setCharacter(cfg) {
 }
 setCharacter(playerCfg)
 
+// podium onder het popje in het maak-scherm
+const podium = new THREE.Mesh(
+  new THREE.CylinderGeometry(1.1, 1.35, 0.25, 28),
+  new THREE.MeshLambertMaterial({ color: 0x2a3650 })
+)
+podium.position.set(0, -0.125, 0)
+podium.receiveShadow = true
+podium.visible = false
+scene.add(podium)
+
 // ---------- Spelstatus ----------
 let status = 'intro' // 'intro' | 'creator' | 'playing' | 'gameover'
 let score = 0
@@ -199,13 +209,9 @@ function makeCreeper() {
 
 // vriendjes-popjes (NPC's) voor tikkertje en verstoppertje
 function randomCfg() {
-  return {
-    skin: (Math.random() * OPTIONS.skin.length) | 0,
-    shirt: (Math.random() * OPTIONS.shirt.length) | 0,
-    pants: (Math.random() * OPTIONS.pants.length) | 0,
-    hair: (Math.random() * OPTIONS.hair.length) | 0,
-    hat: (Math.random() * OPTIONS.hat.length) | 0,
-  }
+  const c = {}
+  for (const p of PARTS) c[p.key] = (Math.random() * p.options.length) | 0
+  return c
 }
 
 // ---------- Ronde bouwen ----------
@@ -479,10 +485,11 @@ function setOverviewCam() {
   camera.lookAt(GRID / 2, 2, GRID / 2)
 }
 function setCreatorCam() {
-  camera.fov = 55
+  // kader het hele popje groot in de open ruimte boven het keuzepaneel
+  camera.fov = 46
   camera.updateProjectionMatrix()
-  camera.position.set(0, 1.7, 4.2)
-  camera.lookAt(0, 1.25, 0)
+  camera.position.set(0, 1.35, 5.4)
+  camera.lookAt(0, 0.7, 0)
 }
 
 // ---------- HUD ----------
@@ -575,7 +582,7 @@ function showCreator() {
   buildCreatorUI()
   player.visible = true
   player.position.set(0, 0, 0)
-  player.rotation.y = 0
+  player.rotation.y = Math.PI // begin met je gezicht naar de camera
   setCreatorCam()
 }
 function exitCreator() {
@@ -622,27 +629,30 @@ function renderHiTable(top) {
 function buildCreatorUI() {
   const rows = $('creatorRows')
   rows.innerHTML = ''
-  for (const part of ['skin', 'shirt', 'pants', 'hair', 'hat']) {
+  for (const part of PARTS) {
     const row = document.createElement('div')
     row.className = 'creator-row'
     const lab = document.createElement('span')
     lab.className = 'creator-label'
-    lab.textContent = PART_LABELS[part]
+    lab.textContent = part.label
     row.appendChild(lab)
     const sw = document.createElement('div')
     sw.className = 'swatches'
-    OPTIONS[part].forEach((val, idx) => {
+    part.options.forEach((val, idx) => {
       const b = document.createElement('button')
       b.className = 'swatch'
-      if (part === 'hat' && idx === 0) {
+      if (part.type === 'text') {
+        b.classList.add('txt')
+        b.textContent = val
+      } else if (val === 'geen') {
         b.classList.add('none')
         b.textContent = 'geen'
       } else {
         b.style.background = val
       }
-      if (idx === playerCfg[part]) b.classList.add('sel')
+      if (idx === playerCfg[part.key]) b.classList.add('sel')
       b.onclick = () => {
-        playerCfg[part] = idx
+        playerCfg[part.key] = idx
         setCharacter(playerCfg)
         player.position.set(0, 0, 0)
         ;[...sw.children].forEach((c) => c.classList.remove('sel'))
@@ -869,10 +879,11 @@ function frame(now) {
   } else if (status === 'creator') {
     player.rotation.y += dt * 0.8
   }
+  podium.visible = status === 'creator'
   if (nameTag) {
     const show = player.visible && (status === 'playing' || status === 'creator')
     nameTag.visible = show
-    if (show) nameTag.position.set(player.position.x, player.position.y + 2.7, player.position.z)
+    if (show) nameTag.position.set(player.position.x, player.position.y + 2.9, player.position.z)
   }
   renderer.render(scene, camera)
   requestAnimationFrame(frame)

@@ -323,7 +323,7 @@ body {
   border-top: 3px solid var(--accent);
   border-radius: 18px 18px 0 0;
   padding: 14px 16px calc(16px + env(safe-area-inset-bottom));
-  max-height: 62%;
+  max-height: 50%;
   overflow-y: auto;
 }
 .creator-title {
@@ -364,6 +364,16 @@ body {
 .swatch.none {
   background: #2a3650;
   font-weight: 700;
+}
+.swatch.txt {
+  width: auto;
+  min-width: 54px;
+  height: 40px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: #2a3650;
 }
 .swatch.sel {
   border-color: #fff;
