@@ -149,6 +149,8 @@ let round = 1
 let steveX = START.x
 let steveZ = START.z
 let walkPhase = 0
+let faceX = 0
+let faceZ = -1
 let invuln = 0
 let pendingScore = 0
 let mode = 'diamond' // 'diamond' | 'tag' | 'hide'
@@ -277,11 +279,13 @@ function buildRound() {
   steveZ = START.z
   player.position.set(steveX, 0, steveZ)
   player.rotation.y = 0
-  player.visible = true
+  player.visible = false // first person: je eigen popje zie je niet
   invuln = 0
-  camera.position.set(steveX, 12, steveZ + 14)
-  camLook.set(steveX, 1.2, steveZ)
-  camera.lookAt(camLook)
+  faceX = 0
+  faceZ = -1
+  camera.fov = 70
+  camera.updateProjectionMatrix()
+  firstPersonCam()
   updateHud()
 }
 
@@ -303,6 +307,13 @@ function updatePlayer(dt) {
     vz /= len
     moveSteve(vx * STEVE_SPEED * dt, vz * STEVE_SPEED * dt)
     player.rotation.y = Math.atan2(vx, -vz)
+    // kijkrichting soepel meedraaien met de looprichting
+    const fk = Math.min(1, dt * 9)
+    faceX += (vx - faceX) * fk
+    faceZ += (vz - faceZ) * fk
+    const fl = Math.hypot(faceX, faceZ) || 1
+    faceX /= fl
+    faceZ /= fl
     walkPhase += dt * 11
     const sw = Math.sin(walkPhase) * 0.6
     u.lLeg.rotation.x = sw
@@ -317,11 +328,7 @@ function updatePlayer(dt) {
     u.rArm.rotation.x *= 0.7
     player.position.set(steveX, 0, steveZ)
   }
-  if (invuln > 0) {
-    invuln -= dt
-    player.visible = Math.floor(invuln * 10) % 2 === 0
-    if (invuln <= 0) player.visible = true
-  }
+  if (invuln > 0) invuln -= dt
 }
 function updateCreepers(dt) {
   for (const c of creepers) {
@@ -444,29 +451,37 @@ function hit() {
   invuln = 1.3
   steveX = START.x
   steveZ = START.z
+  faceX = 0
+  faceZ = -1
   player.position.set(steveX, 0, steveZ)
+  showHitFlash()
   updateHud()
   if (lives <= 0) showGameOver()
 }
+let hitTimer = null
+function showHitFlash() {
+  const el = $('hitflash')
+  el.classList.add('show')
+  if (hitTimer) clearTimeout(hitTimer)
+  hitTimer = setTimeout(() => el.classList.remove('show'), 350)
+}
 
 // ---------- Camera ----------
-const camLook = new THREE.Vector3(START.x, 1.2, START.z)
-function followCam(dt) {
-  const k = Math.min(1, dt * 4)
-  camera.position.x += (steveX - camera.position.x) * k
-  camera.position.z += (steveZ + 13 - camera.position.z) * k
-  camera.position.y += (11 - camera.position.y) * k
-  const k2 = Math.min(1, dt * 6)
-  camLook.x += (steveX - camLook.x) * k2
-  camLook.y += (1.2 - camLook.y) * k2
-  camLook.z += (steveZ - camLook.z) * k2
-  camera.lookAt(camLook)
+// First person: de camera staat op ooghoogte op de speler en kijkt mee in de
+// looprichting, zodat je echt door de straten van Haarlem loopt.
+function firstPersonCam() {
+  camera.position.set(steveX, 1.6, steveZ)
+  camera.lookAt(steveX + faceX * 2, 1.2, steveZ + faceZ * 2)
 }
 function setOverviewCam() {
-  camera.position.set(GRID / 2 - 1, 21, GRID + 5)
-  camera.lookAt(GRID / 2 - 1, 1, GRID / 2 - 1)
+  camera.fov = 55
+  camera.updateProjectionMatrix()
+  camera.position.set(GRID / 2, 13, GRID + 9)
+  camera.lookAt(GRID / 2, 2, GRID / 2)
 }
 function setCreatorCam() {
+  camera.fov = 55
+  camera.updateProjectionMatrix()
   camera.position.set(0, 1.7, 4.2)
   camera.lookAt(0, 1.25, 0)
 }
@@ -850,7 +865,7 @@ function frame(now) {
           break // maar één weetje tegelijk
         }
       }
-      followCam(dt)
+      firstPersonCam()
     }
   } else if (status === 'creator') {
     player.rotation.y += dt * 0.8

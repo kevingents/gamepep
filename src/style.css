@@ -112,6 +112,19 @@ body {
   touch-action: none;
 }
 
+/* ---------- Rode flits bij een tik ---------- */
+.hitflash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(220, 40, 40, 0) 38%, rgba(220, 40, 40, 0.55) 100%);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.hitflash.show {
+  opacity: 1;
+}
+
 /* ---------- Toast (RONDE x) ---------- */
 .toast {
   position: absolute;

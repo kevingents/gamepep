@@ -205,7 +205,7 @@ export function buildHaarlem(group, GRID) {
     if (rnd() < 0.24) return
     solids.add(k)
     const col = palette[(rnd() * palette.length) | 0]
-    const h = 1.8 + rnd() * 1.7
+    const h = 1.5 + rnd() * 1.0
     box(col, 0.92, h, 0.92, x + 0.5, 0, z + 0.5)
     if (rnd() < 0.55) {
       box(col, 0.92, 0.35, 0.5, x + 0.5, h, z + 0.2)
@@ -217,16 +217,17 @@ export function buildHaarlem(group, GRID) {
     box('#cfeaff', 0.3, 0.3, 0.06, x + 0.5, 1.2, z + 0.03)
     box('#3a2a1c', 0.24, 0.6, 0.06, x + 0.5, 0, z + 0.03)
   }
+  // huizen staan iets van de weg af (stoep ertussen) -> straten i.p.v. tunnels
   for (const R of ROADS) {
     for (let z = 1; z < GRID - 1; z++) {
       if (onRoad(z)) continue
-      tryHouse(R - 1, z)
-      tryHouse(R + 1, z)
+      tryHouse(R - 2, z)
+      tryHouse(R + 2, z)
     }
     for (let x = 1; x < GRID - 1; x++) {
       if (onRoad(x)) continue
-      tryHouse(x, R - 1)
-      tryHouse(x, R + 1)
+      tryHouse(x, R - 2)
+      tryHouse(x, R + 2)
     }
   }
 
@@ -241,8 +242,8 @@ export function buildHaarlem(group, GRID) {
   }
   for (const R of ROADS) {
     for (let z = 2; z < GRID - 2; z += 2) {
-      tryTree(R - 2, z)
-      tryTree(R + 2, z)
+      tryTree(R - 1, z)
+      tryTree(R + 1, z)
     }
   }
 
