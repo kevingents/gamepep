@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { sfx, resumeAudio } from './sfx.js'
 import { buildCity, CITIES } from './city.js'
 import { makeCharacter, loadCfg, saveCfg, PARTS } from './character.js'
-import { getTop, topScore, qualifies, addScore } from './scores.js'
+import { refresh, cachedTop, cachedTopScore, qualifies, submit } from './scores.js'
 
 // =====================================================================
 //  Diamant Haarlem - een 3D arcade-game in Minecraft-stijl.
@@ -143,6 +143,7 @@ function saveCity(i) {
     localStorage.setItem('haarlem_stad', String(i))
   } catch (e) {}
 }
+const cityKey = () => CITIES[cityIndex].key
 function buildCurrentCity() {
   for (const child of [...worldGroup.children]) {
     worldGroup.remove(child)
@@ -577,10 +578,13 @@ function showIntro() {
   setOverviewCam()
   hideAllScreens()
   hideFact()
-  $('introHi').textContent = topScore()
+  $('introHi').textContent = cachedTopScore()
   $('introGreeting').textContent = playerName ? 'Hoi, ' + playerName + '!' : ''
   $('introCity').textContent = CITIES[cityIndex].name
   $('intro').classList.add('show')
+  refresh(cityKey()).then(() => {
+    if (status === 'intro') $('introHi').textContent = cachedTopScore()
+  })
 }
 function showCityPicker() {
   resumeAudio()
@@ -665,7 +669,10 @@ function showGameOver() {
   } else {
     box.classList.remove('show')
   }
-  renderHiTable(getTop())
+  renderHiTable(cachedTop())
+  refresh(cityKey()).then(() => {
+    if (status === 'gameover') renderHiTable(cachedTop())
+  })
   hideAllScreens()
   $('gameover').classList.add('show')
 }
@@ -877,8 +884,7 @@ $('btnSaveScore').addEventListener('click', () => {
   playerName = name
   saveName(name)
   updateNameTag()
-  const top = addScore(name, pendingScore)
-  renderHiTable(top)
+  submit(name, pendingScore, cityKey()).then((top) => renderHiTable(top))
   $('initialsBox').classList.remove('show')
 })
 $('nameInput').addEventListener('input', (e) => {
