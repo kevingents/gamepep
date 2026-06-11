@@ -1,8 +1,11 @@
-# Diamant Doolhof
+# Diamant Wereld
 
-Een webgame in Minecraft-stijl voor mobiel. Loop met Steve door het doolhof,
-pak alle diamanten en ontwijk de creepers. Gemaakt voor de telefoon (grote
-knoppen + vegen), werkt ook op de laptop (pijltjes of WASD).
+Een 3D web-game in Minecraft-stijl voor mobiel. Loop met Steve door een open
+blokkenwereld, pak alle diamanten en ontwijk de creepers. De camera loopt
+vanzelf mee. Gemaakt met [Three.js](https://threejs.org) + Vite.
+
+Gemaakt voor de telefoon (grote knoppen), werkt ook op de laptop (pijltjes of
+WASD). Houd een richting ingedrukt om te lopen.
 
 ## Lokaal spelen / ontwikkelen
 
@@ -27,15 +30,25 @@ Elke keer dat je iets naar GitHub pusht, zet Vercel automatisch de nieuwe versie
 
 ## Zelf aanpassen
 
-- **Levels / doolhof:** `src/levels.js`. Teken met deze tekens:
-  - `#` muur · `.` pad · `S` startplek van Steve · `D` diamant · `C` creeper
-  - Elke regel moet even lang zijn. Zet `D` en `C` altijd op een pad.
-- **Snelheid creepers:** `creeperInterval` in `src/main.js` (lager = sneller).
-- **Aantal hartjes:** `MAX_HEARTS` in `src/main.js`.
-- **Kleuren / uiterlijk:** `src/style.css` en de teken-functies in `src/main.js`.
-- **Geluidjes:** `src/sfx.js`.
+Alle knoppen om aan te draaien staan **bovenin [`src/main.js`](src/main.js)**:
+
+| Instelling | Wat het doet |
+|---|---|
+| `GRID` | grootte van het speelveld |
+| `MAX_HEARTS` | aantal levens |
+| `STEVE_SPEED` | hoe snel Steve loopt |
+| `CREEPER_SPEED` | hoe snel de creepers lopen (lager = makkelijker) |
+| `BASE_DIAMONDS` | aantal diamanten in ronde 1 |
+| `BASE_CREEPERS` | aantal creepers in ronde 1 |
+
+Elke ronde komen er automatisch wat meer diamanten en creepers bij.
+
+- **Uiterlijk** (kleuren, Steve, creeper, bomen): de teken-functies in
+  [`src/main.js`](src/main.js) (`makeSteve`, `makeCreeper`, `makeTree`, de
+  texturen bovenaan).
+- **Geluidjes:** [`src/sfx.js`](src/sfx.js).
 
 ## Bediening
 
-- **Mobiel:** veeg over het scherm, of gebruik de knoppen onderin.
-- **Laptop:** pijltjestoetsen of `W` `A` `S` `D`.
+- **Mobiel:** houd de knoppen onderin ingedrukt om te lopen.
+- **Laptop:** pijltjestoetsen of `W` `A` `S` `D` ingedrukt houden.
