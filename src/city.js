@@ -120,15 +120,60 @@ function buildLandmark(ctx, lm) {
       break
     }
     case 'school': {
-      solidRect(Math.floor(x) - 1, Math.floor(z) - 1, 3, 2)
-      box('#cf7a3a', 3, 2.4, 2, x, 0, z)
-      box('#8f5024', 3.2, 0.4, 2.2, x, 2.4, z)
-      box('#c84b3a', 3, 0.9, 2, x, 2.8, z)
-      box('#bfe4ff', 0.5, 0.5, 0.1, x - 0.8, 1.2, z - 1.01)
-      box('#bfe4ff', 0.5, 0.5, 0.1, x + 0.8, 1.2, z - 1.01)
-      box('#3a6ff7', 0.6, 1.0, 0.12, x, 0, z - 1.02)
-      box('#dddddd', 0.08, 2.6, 0.08, x + 1.8, 0, z)
-      box('#ffd166', 0.9, 0.5, 0.06, x + 2.2, 2.5, z)
+      // de Veronicaschool: je kunt door de deur naar binnen lopen!
+      const x0 = Math.floor(x) - 2
+      const z0 = Math.floor(z) - 1
+      ctx.reserveRect(x0 - 1, z0 - 4, 7, 9) // school + schoolplein vrijhouden
+      for (let i = 0; i < 5; i++)
+        for (let j = 0; j < 4; j++) {
+          const edge = i === 0 || i === 4 || j === 0 || j === 3
+          if (!edge || (i === 2 && j === 0)) continue // de deuropening blijft vrij
+          const cx = x0 + i
+          const cz = z0 + j
+          solidRect(cx, cz, 1, 1)
+          box('#cf7a3a', 1, 2.5, 1, cx + 0.5, 0, cz + 0.5)
+        }
+      // deuropening: balk erboven + blauwe kozijnen
+      box('#cf7a3a', 1, 0.6, 1, x0 + 2.5, 1.9, z0 + 0.5)
+      box('#3a6ff7', 0.16, 1.9, 0.9, x0 + 2.04, 0, z0 + 0.5)
+      box('#3a6ff7', 0.16, 1.9, 0.9, x0 + 2.96, 0, z0 + 0.5)
+      // grote ramen aan de voorkant
+      for (const wxx of [x0 + 0.5, x0 + 1.5, x0 + 3.5, x0 + 4.5]) {
+        box('#f4f1e8', 0.7, 0.9, 0.1, wxx, 0.8, z0 + 0.01)
+        box('#bfe4ff', 0.56, 0.74, 0.12, wxx, 0.88, z0 + 0.005)
+      }
+      // dak
+      box('#8f5024', 5.6, 0.12, 4.6, x0 + 2.5, 2.42, z0 + 2)
+      box('#c84b3a', 5.4, 0.2, 4.4, x0 + 2.5, 2.54, z0 + 2)
+      // binnen: schoolbord, tafeltjes met stoeltjes en een boekenkast
+      box('#1f4d3a', 1.9, 0.9, 0.08, x0 + 2.5, 0.9, z0 + 3.04)
+      for (const [tx, tz] of [[1.3, 1.6], [3.7, 1.6], [1.3, 2.5], [3.7, 2.5]]) {
+        box('#b9774a', 0.6, 0.08, 0.45, x0 + tx, 0.5, z0 + tz)
+        box('#b9774a', 0.07, 0.5, 0.07, x0 + tx - 0.24, 0, z0 + tz)
+        box('#b9774a', 0.07, 0.5, 0.07, x0 + tx + 0.24, 0, z0 + tz)
+        box('#e63946', 0.3, 0.34, 0.3, x0 + tx - 0.62, 0, z0 + tz)
+      }
+      box('#8a5a33', 0.4, 1.5, 1.3, x0 + 3.72, 0, z0 + 2)
+      // vlaggenmast + schoolplein: hek, zandbak en glijbaan
+      box('#dddddd', 0.08, 2.8, 0.08, x0 - 0.6, 0, z0 - 0.6)
+      box('#ffd166', 0.9, 0.5, 0.06, x0 - 0.2, 2.6, z0 - 0.6)
+      for (let fx = x0 - 1; fx <= x0 + 5; fx++) {
+        box('#cfd6df', 0.1, 0.55, 0.1, fx + 0.5, 0, z0 - 4)
+      }
+      for (const fz of [z0 - 3.5, z0 - 2.5, z0 - 1.5]) {
+        box('#cfd6df', 0.1, 0.55, 0.1, x0 - 1, 0, fz)
+        box('#cfd6df', 0.1, 0.55, 0.1, x0 + 6, 0, fz)
+      }
+      box('#f0dca0', 1.5, 0.12, 1.5, x0 + 1, 0, z0 - 2) // zandbak
+      box('#b9774a', 1.7, 0.1, 0.12, x0 + 1, 0.12, z0 - 2.75)
+      box('#b9774a', 1.7, 0.1, 0.12, x0 + 1, 0.12, z0 - 1.25)
+      // glijbaan: trapje + schuine baan
+      box('#9aa0a8', 0.4, 1.0, 0.3, x0 + 4, 0, z0 - 1.4)
+      const slide = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 1.7), matOf('#3a6ff7'))
+      slide.position.set(x0 + 4, 0.62, z0 - 2.3)
+      slide.rotation.x = 0.55
+      slide.castShadow = true
+      group.add(slide)
       break
     }
     case 'palace': {
@@ -398,24 +443,26 @@ export function buildCity(group, GRID, city) {
     box('#6f4a2e', 0.14, 0.32, 1.6, R - 0.95, 0.12, c + 0.5)
     box('#6f4a2e', 0.14, 0.32, 1.6, R + 1.95, 0.12, c + 0.5)
   }
-  function makeDrawbridge(c, R, axis) {
-    const wood = matOf('#9a6a3e')
+  function makeDrawbridge(c, R, axis, w = 1, deckCol = '#9a6a3e') {
+    const wood = matOf(deckCol)
     const dark = matOf('#5a3a22')
     const g = new THREE.Group()
-    const cells =
-      axis === 'x'
-        ? [c + ',' + (R - 1), c + ',' + R, c + ',' + (R + 1)]
-        : [R - 1 + ',' + c, R + ',' + c, R + 1 + ',' + c]
+    const cells = []
+    for (let i = 0; i < w; i++) {
+      if (axis === 'x') cells.push(c + i + ',' + (R - 1), c + i + ',' + R, c + i + ',' + (R + 1))
+      else cells.push(R - 1 + ',' + (c + i), R + ',' + (c + i), R + 1 + ',' + (c + i))
+    }
     // water loopt onder de brug door (zichtbaar als hij open staat)
     for (const k of cells) {
       const [gx, gz] = k.split(',').map(Number)
       box('#3aa0d8', 1, 0.12, 1, gx + 0.5, 0, gz + 0.5)
     }
     // wegdek dat omhoog klapt (pivot aan een kant)
+    const len = w + 0.8
     const deck =
       axis === 'x'
-        ? new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.12, 2.9).translate(0.9, 0, 0), wood)
-        : new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.12, 1.8).translate(0, 0, 0.9), wood)
+        ? new THREE.Mesh(new THREE.BoxGeometry(len, 0.12, 2.9).translate(len / 2, 0, 0), wood)
+        : new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.12, len).translate(0, 0, len / 2), wood)
     deck.castShadow = true
     if (axis === 'x') deck.position.set(c - 0.4, 0.16, R + 0.5)
     else deck.position.set(R + 0.5, 0.16, c - 0.4)
@@ -457,13 +504,14 @@ export function buildCity(group, GRID, city) {
     if (axis === 'z') boat.rotation.y = Math.PI / 2
     g.add(deck, p1, p2, beam, arm, boat)
     group.add(g)
-    drawbridges.push({ deck, arm, boat, axis, c, R, cells, t: (c * 7 + R) % 12, blocked: false })
+    drawbridges.push({ deck, arm, boat, axis, c, R, w, cells, t: (c * 7 + R) % 12, blocked: false })
   }
   // ---- Plattegrond-bouwstenen: rivieren, grachten, ringen, vijvers, zee ----
-  function riverV(fx, w, bridges) {
+  function riverV(fx, w, bridges, extraGaps = []) {
     for (let z = 4; z < GRID; z++) {
       const cx = Math.round(fx(z))
       if (bridges.some((R) => z >= R - 1 && z <= R + 1)) continue
+      if (extraGaps.some((R) => z >= R - 1 && z <= R + 1)) continue
       for (let x = Math.max(0, cx - (w >> 1)), n = 0; n < w && x < GRID; x++, n++) water(x, z)
     }
     for (const R of bridges) {
@@ -545,8 +593,43 @@ export function buildCity(group, GRID, city) {
 
   // De plattegrond per stad - herkenbaar van de echte kaart
   if (city.key === 'haarlem') {
-    riverV((z) => GRID * 0.72 + Math.sin(z * 0.05) * 5, 4, [ROADS[3], ROADS[7]]) // het Spaarne
-    canalV(Math.round(GRID * 0.56), Math.round(GRID * 0.1), Math.round(GRID * 0.6), ROADS[2]) // gracht in het centrum
+    const spaarne = (z) => GRID * 0.72 + Math.sin(z * 0.05) * 5
+    riverV(spaarne, 4, [ROADS[3], ROADS[7]], [ROADS[4]]) // het Spaarne
+    // de Gravestenenbrug: de witte ophaalbrug over het Spaarne
+    makeDrawbridge(Math.round(spaarne(ROADS[4])) - 2, ROADS[4], 'x', 4, '#f2efe6')
+    canalV(Math.round(GRID * 0.56), Math.round(GRID * 0.1), Math.round(GRID * 0.6), ROADS[2]) // de Bakenessergracht
+    // de Grote Markt: plaveisel rond de Grote Kerk
+    reserveRect(72, 73, 12, 12)
+    for (let px = 72; px < 84; px++)
+      for (let pz = 73; pz < 85; pz++) {
+        if (distAxis[px] <= 2 || distAxis[pz] <= 2) continue
+        box('#cdc4b0', 1, 0.05, 1, px + 0.5, 0, pz + 0.5)
+      }
+    // de Grote Houtstraat: autovrije winkelstraat met lantaarns en vlaggetjes
+    const GH = ROADS[5]
+    box('#cdc4b0', 3, 0.03, 70, GH + 0.5, 0.045, 121)
+    for (let z = 90; z < GRID - 6; z += 7) {
+      box('#2a2f3a', 0.12, 2.6, 0.12, GH - 1.2, 0, z + 0.5)
+      box('#2a2f3a', 0.12, 2.6, 0.12, GH + 2.2, 0, z + 0.5)
+      box('#caa23a', 3.6, 0.05, 0.06, GH + 0.5, 2.5, z + 0.5)
+      const vlagCols = ['#e63946', '#ffd166', '#3a6ff7', '#4caf50', '#ff7ab6']
+      for (let i = 0; i < 5; i++) box(vlagCols[i], 0.2, 0.24, 0.05, GH - 0.9 + i * 0.7, 2.26, z + 0.5)
+    }
+    // de Haarlemmerhout: het oudste stadsbos, met een vijver
+    reserveRect(40, 138, 26, 16)
+    bigPond(58, 146, 4, 2.5)
+    for (let px = 40; px < 66; px++)
+      for (let pz = 138; pz < 154; pz++) {
+        if (distAxis[px] <= 2 || distAxis[pz] <= 2) continue
+        const hk = px + ',' + pz
+        if (solids.has(hk)) continue
+        box('#5da848', 1, 0.05, 1, px + 0.5, 0, pz + 0.5)
+        if ((px * 7 + pz * 13) % 5 === 0) {
+          solids.add(hk)
+          box('#7a5230', 0.3, 1.1, 0.3, px + 0.5, 0.05, pz + 0.5)
+          box('#4f9e35', 1.05, 1.15, 1.05, px + 0.5, 1.15, pz + 0.5)
+        }
+      }
   } else if (city.key === 'uithoorn') {
     riverH((x) => GRID * 0.82 + Math.sin(x * 0.04) * 5, 4, [ROADS[4], ROADS[8]]) // de Amstel
     canalV(Math.round(GRID * 0.3), Math.round(GRID * 0.35), Math.round(GRID * 0.8), ROADS[5])
@@ -846,9 +929,10 @@ export function buildCity(group, GRID, city) {
         if (b.t >= openStart - 0.4 && b.t <= openStart + T3 + 0.4) {
           const p = Math.min(1, Math.max(0, (b.t - openStart + 0.4) / (T3 + 0.8)))
           const off = -8 + 16 * p
+          const mid = b.c + (b.w || 1) / 2
           b.boat.visible = true
-          if (b.axis === 'x') b.boat.position.set(b.c + 0.5, 0.02, b.R + 0.5 + off)
-          else b.boat.position.set(b.R + 0.5 + off, 0.02, b.c + 0.5)
+          if (b.axis === 'x') b.boat.position.set(mid, 0.02, b.R + 0.5 + off)
+          else b.boat.position.set(b.R + 0.5 + off, 0.02, mid)
         } else b.boat.visible = false
       }
       // trein rijdt heen en weer over het spoor
@@ -877,13 +961,21 @@ export const CITIES = [
     start: START,
     landmarks: [
       { name: 'Grote Kerk', type: 'church', x: 19.5, z: 19.5, opts: { tower: 7, spire: '#3f7d6e' }, labelY: 11.5, labelScale: 1.2, fact: 'De Grote Kerk staat op de Grote Markt en heeft een wereldberoemd orgel. Mozart speelde erop toen hij nog maar 10 jaar oud was!' },
+      { name: 'Stadhuis', type: 'palace', x: 16.8, z: 19.5, opts: { w: 5, color: '#b89a6a', cupola: true }, labelY: 6.2, fact: 'Het Stadhuis van Haarlem staat aan de Grote Markt, recht tegenover de Grote Kerk.' },
+      { name: 'Vleeshal', type: 'museum', x: 18.6, z: 22.2, opts: { color: '#7a8088', spire: '#5a6470' }, labelY: 6.0, fact: 'De Vleeshal op de Grote Markt is meer dan 400 jaar oud. Vroeger werd er vlees verkocht, nu is het een museum.' },
+      { name: 'Grote Markt', type: 'square', x: 18.4, z: 19.8, labelY: 3.2, fact: 'Op de Grote Markt is vaak markt. Hier staat ook het standbeeld van Laurens Janszoon Coster.' },
       { name: 'Het Spaarne', type: 'label', x: 28, z: 24, labelY: 1.8, fact: 'Het Spaarne is de rivier van Haarlem. Hij slingert dwars door de stad, met bruggen eroverheen.' },
-      { name: 'Molen De Adriaan', type: 'windmill', x: 33, z: 9, labelY: 7.2, fact: 'Molen De Adriaan staat aan het Spaarne. Vroeger werd er onder andere tabak en verf gemaakt.' },
+      { name: 'Gravestenenbrug', type: 'label', x: 28.3, z: 17.5, labelY: 5.5, fact: 'De Gravestenenbrug is de witte ophaalbrug over het Spaarne. Hij gaat open als er een bootje aankomt!' },
+      { name: 'Teylers Museum', type: 'museum', x: 27, z: 16.6, opts: { color: '#cdbb94', spire: '#3f5e7d' }, labelY: 6.0, fact: 'Het Teylers Museum aan het Spaarne is het oudste museum van Nederland, vol fossielen en uitvindingen.' },
+      { name: 'Bakenesserkerk', type: 'tower', x: 24, z: 16, opts: { h: 9, spire: '#f4f6f8' }, labelY: 12.5, fact: 'De witte toren van de Bakenesserkerk zie je overal boven de daken van Haarlem uitsteken.' },
+      { name: 'Molen De Adriaan', type: 'windmill', x: 30.8, z: 9, labelY: 7.2, fact: 'Molen De Adriaan staat op de oever van het Spaarne. Vroeger werd er onder andere tabak en verf gemaakt.' },
       { name: 'Amsterdamse Poort', type: 'gate', x: 26, z: 13, labelY: 6.4, fact: 'De Amsterdamse Poort is meer dan 600 jaar oud. Hij staat vlak bij het Spaarne, net als in het echt.' },
       { name: 'Lange Herenvest 16', type: 'home', x: 27.5, z: 14.5, labelY: 5.0, labelScale: 1.2, fact: 'Dit is jullie huis aan de Lange Herenvest, vlak bij de Amsterdamse Poort en het Spaarne. Zwaai maar naar de buren!' },
       { name: 'Station Haarlem', type: 'station', x: 19.5, z: 6, labelY: 5.6, fact: 'Vanaf Haarlem reed in 1839 de allereerste trein van Nederland!' },
-      { name: 'Veronicaschool', type: 'school', x: 9, z: 31, labelY: 5.8, labelScale: 1.3, fact: 'Dit is jouw school! Hier leer je lezen, rekenen en spelen met al je vriendjes.' },
-      { name: 'Grote Markt', type: 'square', x: 30, z: 30, labelY: 3.2, fact: 'Op de Grote Markt is vaak markt. Hier staat ook het standbeeld van Laurens Janszoon Coster.' },
+      { name: 'Veronicaschool', type: 'school', x: 9, z: 30, labelY: 5.8, labelScale: 1.3, fact: 'Dit is jouw school! Je kunt naar binnen lopen: binnen staan de tafeltjes en het schoolbord, buiten zijn de zandbak en de glijbaan.' },
+      { name: 'Frans Hals Museum', type: 'museum', x: 16.6, z: 27, opts: { color: '#8a4632' }, labelY: 6.0, fact: 'In het Frans Hals Museum hangen schilderijen van Frans Hals, de beroemdste schilder van Haarlem.' },
+      { name: 'Grote Houtstraat', type: 'label', x: 21, z: 27, labelY: 3.2, fact: 'De Grote Houtstraat is de gezelligste winkelstraat van Haarlem. Auto’s mogen er niet rijden.' },
+      { name: 'Haarlemmerhout', type: 'label', x: 13, z: 36.5, labelY: 3.0, fact: 'De Haarlemmerhout is het oudste stadsbos van Nederland. Lekker rennen en verstoppen tussen de bomen!' },
     ],
   },
   {

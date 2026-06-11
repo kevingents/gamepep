@@ -628,10 +628,7 @@ function buildRound() {
 
 // ---------- Bewegen ----------
 const held = { up: false, down: false, left: false, right: false } // toetsenbord (desktop)
-let touchActive = false // vinger op het scherm = lopen
-let touchTurn = 0 // -1..1 sturen door te schuiven
-let touchId = null
-let touchStartX = 0
+const joyVec = { x: 0, y: 0 } // joystick (mobiel/tablet): x = sturen, y = vooruit/achteruit
 function moveSteve(dx, dz) {
   // de speler heeft een "dikte" (R) zodat je niet in muren/bomen clipt
   const R = 0.34
@@ -646,10 +643,8 @@ function updatePlayer(dt) {
   // Sturen: toetsenbord (desktop) of touch (vasthouden + schuiven).
   let turn = (held.right ? 1 : 0) - (held.left ? 1 : 0)
   let fwd = (held.up ? 1 : 0) - (held.down ? 1 : 0)
-  if (touchActive) {
-    turn += touchTurn
-    fwd += 1 // vinger op het scherm = vooruit lopen
-  }
+  if (Math.abs(joyVec.x) > 0.16) turn += joyVec.x
+  if (Math.abs(joyVec.y) > 0.16) fwd += -joyVec.y // joystick omhoog = vooruit
   turn = Math.max(-1, Math.min(1, turn))
   fwd = Math.max(-1, Math.min(1, fwd))
   yaw += turn * TURN_SPEED * dt
@@ -1365,10 +1360,11 @@ function setSceneVisible(v) {
   roundGroup.visible = v
 }
 function setChrome(v) {
-  // HUD + actieknoppen alleen tijdens het spelen tonen
+  // HUD, joystick en actieknoppen alleen tijdens het spelen tonen
   const vis = v ? 'visible' : 'hidden'
   document.getElementById('hud').style.visibility = vis
   document.getElementById('actions').style.visibility = vis
+  document.getElementById('joystick').style.visibility = vis
 }
 function showIntro() {
   status = 'intro'
@@ -1550,7 +1546,7 @@ function buildCreatorUI() {
 function maybeHint() {
   if (IS_TOUCH && !hintShown) {
     hintShown = true
-    setTimeout(() => showToast('Houd het scherm vast en schuif om te lopen'), 400)
+    setTimeout(() => showToast('Loop met de joystick linksonder'), 400)
   }
 }
 let toastTimer = null
@@ -1679,32 +1675,47 @@ window.addEventListener('keyup', (e) => {
   const dir = KEYMAP[e.key]
   if (dir) held[dir] = false
 })
-// Touch (telefoon/tablet): houd het scherm vast om te lopen, schuif je vinger
-// naar links/rechts om te sturen.
-canvas.addEventListener('pointerdown', (e) => {
-  if (status !== 'playing') return
-  touchActive = true
-  touchId = e.pointerId
-  touchStartX = e.clientX
-  touchTurn = 0
+// Joystick (telefoon/tablet): duim op de stick, duwen = lopen, opzij = sturen.
+const joyEl = $('joystick')
+const joyKnob = $('joyKnob')
+let joyId = null
+function joySet(e) {
+  const r = joyEl.getBoundingClientRect()
+  let dx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2)
+  let dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2)
+  const len = Math.hypot(dx, dy)
+  if (len > 1) {
+    dx /= len
+    dy /= len
+  }
+  joyVec.x = dx
+  joyVec.y = dy
+  joyKnob.style.transform = 'translate(' + dx * 34 + 'px,' + dy * 34 + 'px)'
+}
+function joyReset() {
+  joyId = null
+  joyVec.x = 0
+  joyVec.y = 0
+  joyKnob.style.transform = ''
+}
+joyEl.addEventListener('pointerdown', (e) => {
+  e.preventDefault()
+  joyId = e.pointerId
   try {
-    canvas.setPointerCapture(e.pointerId)
+    joyEl.setPointerCapture(e.pointerId)
   } catch (err) {}
   resumeAudio()
+  joySet(e)
 })
-canvas.addEventListener('pointermove', (e) => {
-  if (!touchActive || e.pointerId !== touchId) return
-  const range = Math.max(120, window.innerWidth * 0.22)
-  touchTurn = Math.max(-1, Math.min(1, (e.clientX - touchStartX) / range))
+joyEl.addEventListener('pointermove', (e) => {
+  if (e.pointerId === joyId) joySet(e)
 })
-function endTouch(e) {
-  if (e && touchId !== null && e.pointerId !== touchId) return
-  touchActive = false
-  touchTurn = 0
-  touchId = null
-}
-canvas.addEventListener('pointerup', endTouch)
-canvas.addEventListener('pointercancel', endTouch)
+joyEl.addEventListener('pointerup', (e) => {
+  if (e.pointerId === joyId) joyReset()
+})
+joyEl.addEventListener('pointercancel', (e) => {
+  if (e.pointerId === joyId) joyReset()
+})
 
 // ---------- Knoppen ----------
 $('btnDiamond').addEventListener('click', () => startGame('diamond'))

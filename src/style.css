@@ -478,8 +478,33 @@ body {
   color: var(--yellow);
 }
 
-/* Pijltjes zijn vervangen door touch-besturing (vasthouden + schuiven).
-   Desktop gebruikt het toetsenbord. */
+/* ---------- Joystick (overlay linksonder) ---------- */
+#joystick {
+  position: absolute;
+  left: calc(16px + env(safe-area-inset-left));
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  width: 122px;
+  height: 122px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  background: rgba(20, 27, 48, 0.35);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 20;
+  touch-action: none;
+}
+#joyKnob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 56px;
+  height: 56px;
+  margin: -28px 0 0 -28px;
+  border-radius: 50%;
+  background: rgba(120, 150, 210, 0.78);
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  pointer-events: none;
+}
 
 /* ---------- Power-ups + scheet/boer (overlay rechtsonder) ---------- */
 #actions {
