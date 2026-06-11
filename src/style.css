@@ -220,6 +220,14 @@ body {
   margin: 4px 0 10px;
   color: var(--text);
 }
+.arcade-city {
+  font-size: 15px;
+  margin: 0 0 6px;
+  color: var(--text);
+}
+.arcade-city b {
+  color: var(--accent);
+}
 .screen.show {
   display: flex;
 }

@@ -1,7 +1,7 @@
 import './style.css'
 import * as THREE from 'three'
 import { sfx, resumeAudio } from './sfx.js'
-import { buildHaarlem } from './haarlem.js'
+import { buildCity, CITIES } from './city.js'
 import { makeCharacter, loadCfg, saveCfg, PARTS } from './character.js'
 import { getTop, topScore, qualifies, addScore } from './scores.js'
 
@@ -125,9 +125,34 @@ scene.add(ground)
 // ---------- Haarlem ----------
 const worldGroup = new THREE.Group()
 scene.add(worldGroup)
-const world = buildHaarlem(worldGroup, GRID)
+let cityIndex = loadCity()
+let world = buildCity(worldGroup, GRID, CITIES[cityIndex])
 const roundGroup = new THREE.Group()
 scene.add(roundGroup)
+
+function loadCity() {
+  try {
+    const i = parseInt(localStorage.getItem('haarlem_stad') || '0', 10)
+    return i >= 0 && i < CITIES.length ? i : 0
+  } catch (e) {
+    return 0
+  }
+}
+function saveCity(i) {
+  try {
+    localStorage.setItem('haarlem_stad', String(i))
+  } catch (e) {}
+}
+function buildCurrentCity() {
+  for (const child of [...worldGroup.children]) {
+    worldGroup.remove(child)
+    child.traverse((o) => {
+      if (o.isMesh && o.geometry) o.geometry.dispose()
+    })
+  }
+  world = buildCity(worldGroup, GRID, CITIES[cityIndex])
+  shownFacts = new Set()
+}
 
 // ---------- Speler-popje ----------
 let playerCfg = loadCfg()
@@ -532,6 +557,7 @@ function hideAllScreens() {
   $('intro').classList.remove('show')
   $('creator').classList.remove('show')
   $('gameover').classList.remove('show')
+  $('cityscreen').classList.remove('show')
 }
 function setSceneVisible(v) {
   ground.visible = v
@@ -553,7 +579,36 @@ function showIntro() {
   hideFact()
   $('introHi').textContent = topScore()
   $('introGreeting').textContent = playerName ? 'Hoi, ' + playerName + '!' : ''
+  $('introCity').textContent = CITIES[cityIndex].name
   $('intro').classList.add('show')
+}
+function showCityPicker() {
+  resumeAudio()
+  status = 'citypick'
+  setSceneVisible(true)
+  setChrome(false)
+  player.visible = false
+  setOverviewCam()
+  hideAllScreens()
+  hideFact()
+  buildCityButtons()
+  $('cityscreen').classList.add('show')
+}
+function buildCityButtons() {
+  const wrap = $('cityButtons')
+  wrap.innerHTML = ''
+  CITIES.forEach((c, i) => {
+    const b = document.createElement('button')
+    b.className = 'arcade-btn' + (i === cityIndex ? '' : ' alt')
+    b.textContent = c.name.toUpperCase()
+    b.onclick = () => {
+      cityIndex = i
+      saveCity(i)
+      buildCurrentCity()
+      showIntro()
+    }
+    wrap.appendChild(b)
+  })
 }
 function startGame(m) {
   mode = m || 'diamond'
@@ -812,6 +867,8 @@ $('btnDiamond').addEventListener('click', () => startGame('diamond'))
 $('btnTag').addEventListener('click', () => startGame('tag'))
 $('btnHide').addEventListener('click', () => startGame('hide'))
 $('btnCreator').addEventListener('click', showCreator)
+$('btnCity').addEventListener('click', showCityPicker)
+$('btnCityBack').addEventListener('click', showIntro)
 $('btnCreatorDone').addEventListener('click', exitCreator)
 $('btnRestart').addEventListener('click', showIntro)
 $('btnSaveScore').addEventListener('click', () => {

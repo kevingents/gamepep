@@ -8,7 +8,7 @@
     />
     <meta name="theme-color" content="#0b1020" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <title>Diamant Haarlem</title>
+    <title>Diamant Nederland</title>
   </head>
   <body>
     <div id="app">
@@ -35,13 +35,15 @@
         <!-- Arcade intro -->
         <div id="intro" class="screen show">
           <div class="arcade">
-            <h1 class="arcade-title">DIAMANT<br />HAARLEM</h1>
+            <h1 class="arcade-title">DIAMANT<br />NEDERLAND</h1>
             <p class="arcade-greeting" id="introGreeting"></p>
+            <p class="arcade-city">Stad: <b id="introCity">Haarlem</b></p>
             <p class="arcade-hi">TOPSCORE <span id="introHi">0</span></p>
             <p class="arcade-pick">Kies een spel:</p>
             <button class="arcade-btn" id="btnDiamond">DIAMANTEN ZOEKEN</button>
             <button class="arcade-btn" id="btnTag">TIKKERTJE</button>
             <button class="arcade-btn" id="btnHide">VERSTOPPERTJE</button>
+            <button class="arcade-btn alt" id="btnCity">ANDERE STAD</button>
             <button class="arcade-btn alt" id="btnCreator">MAAK JE POPJE</button>
           </div>
         </div>
@@ -73,6 +75,15 @@
             </div>
             <table id="hiTable" class="hi-table"></table>
             <button class="arcade-btn alt" id="btnRestart">OPNIEUW</button>
+          </div>
+        </div>
+
+        <!-- Stad kiezen -->
+        <div id="cityscreen" class="screen">
+          <div class="arcade">
+            <h1 class="arcade-title small">KIES EEN STAD</h1>
+            <div id="cityButtons"></div>
+            <button class="arcade-btn alt" id="btnCityBack">TERUG</button>
           </div>
         </div>
       </main>

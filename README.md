@@ -1,13 +1,13 @@
-# Diamant Haarlem
+# Diamant Nederland
 
-Een 3D arcade-game in Minecraft-stijl die zich afspeelt in **Haarlem**. Loop met
-je **eigen popje** door de stad — langs de Grote Kerk, Molen De Adriaan, de
-Amsterdamse Poort, het Spaarne en de **Veronicaschool** — pak alle diamanten,
-ontwijk de creepers en haal een **highscore**. Gemaakt met
+Een 3D arcade-game in Minecraft-stijl die zich afspeelt in **steden van
+Nederland**: Haarlem, Uithoorn, Amsterdam, Rotterdam, Utrecht en Den Haag. Loop
+in **first person** met je **eigen popje** door de straten, pak alle diamanten of
+speel tikkertje/verstoppertje, en leer onderweg over de gebouwen. Gemaakt met
 [Three.js](https://threejs.org) + Vite.
 
-Voor de telefoon (grote knoppen), werkt ook op de laptop (pijltjes of WASD).
-Houd een richting ingedrukt om te lopen.
+Voor de telefoon (grote knoppen), werkt ook op de laptop (pijltjes of WASD):
+omhoog = vooruit, links/rechts = draaien, omlaag = achteruit.
 
 ## Wat zit erin
 
@@ -15,11 +15,12 @@ Houd een richting ingedrukt om te lopen.
   - **Diamanten zoeken** — pak alle diamanten, ontwijk de creepers (3 levens).
   - **Tikkertje** — tik alle rondrennende kinderen voor de tijd om is (geen monsters).
   - **Verstoppertje** — vind alle verstopte kinderen voor de tijd om is (geen monsters).
-- **Groot, gedetailleerd Haarlem**: straten, veel huizen, bomen, rijdende auto's,
-  een gracht en herkenningspunten met naambordjes.
-- **Eigen popje + naam**: maak je popje (huid, shirt, broek, haar, pet) en kies een
-  naam (bordje boven je popje, automatisch bij de highscores). Wordt onthouden.
-- **Haarlemse weetjes**: loop je naar een gebouw, dan verschijnt een leuk feitje.
+- **6 steden** om te kiezen, elk met eigen herkenningspunten + weetjes: straten,
+  huizen, bomen, rijdende auto's, water en landmarks met naambordjes.
+- **Eigen popje + naam**: stel je popje in (huid, kapsel, haarkleur, shirt, broek,
+  schoenen, bril, pet) en kies een naam. Wordt onthouden.
+- **Weetjes per stad**: loop je naar een gebouw, dan verschijnt een leuk feitje
+  over die plek.
 - **Arcade-intro**, punten, rondes en **GAME OVER** met highscore-lijst.
 
 > De highscores staan nu nog **lokaal** (op het apparaat). De opzet is zo
@@ -50,7 +51,7 @@ Knoppen om aan te draaien staan bovenin [`src/main.js`](src/main.js):
 
 | Bestand | Wat erin zit |
 |---|---|
-| [`src/haarlem.js`](src/haarlem.js) | de stad Haarlem: gebouwen, landmarks, Veronicaschool |
+| [`src/city.js`](src/city.js) | de steden: algemene bouwer + landmarks/weetjes per stad |
 | [`src/character.js`](src/character.js) | het popje + kleur-opties |
 | [`src/scores.js`](src/scores.js) | highscore-opslag (nu lokaal) |
 | [`src/sfx.js`](src/sfx.js) | geluidjes |
