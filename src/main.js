@@ -33,6 +33,8 @@ const POWERS = {
 }
 const POWER_KEYS = ['radar', 'speed', 'giant']
 let soundCool = 0
+const IS_TOUCH = 'ontouchstart' in window || (navigator.maxTouchPoints || 0) > 0
+let hintShown = false
 const MODE_LABEL = { diamond: 'DIAMANTEN', tag: 'TIKKERTJE', hide: 'VERSTOPPEN' }
 
 // ---------- DOM ----------
@@ -385,7 +387,11 @@ function buildRound() {
 }
 
 // ---------- Bewegen ----------
-const held = { up: false, down: false, left: false, right: false }
+const held = { up: false, down: false, left: false, right: false } // toetsenbord (desktop)
+let touchActive = false // vinger op het scherm = lopen
+let touchTurn = 0 // -1..1 sturen door te schuiven
+let touchId = null
+let touchStartX = 0
 function moveSteve(dx, dz) {
   const nx = clamp(steveX + dx, 0.6, GRID - 0.6)
   if (!cellSolid(nx, steveZ)) steveX = nx
@@ -393,9 +399,15 @@ function moveSteve(dx, dz) {
   if (!cellSolid(steveX, nz)) steveZ = nz
 }
 function updatePlayer(dt) {
-  // tank-besturing: links/rechts = draaien, omhoog = vooruit, omlaag = achteruit
-  const turn = (held.right ? 1 : 0) - (held.left ? 1 : 0)
-  const fwd = (held.up ? 1 : 0) - (held.down ? 1 : 0)
+  // Sturen: toetsenbord (desktop) of touch (vasthouden + schuiven).
+  let turn = (held.right ? 1 : 0) - (held.left ? 1 : 0)
+  let fwd = (held.up ? 1 : 0) - (held.down ? 1 : 0)
+  if (touchActive) {
+    turn += touchTurn
+    fwd += 1 // vinger op het scherm = vooruit lopen
+  }
+  turn = Math.max(-1, Math.min(1, turn))
+  fwd = Math.max(-1, Math.min(1, fwd))
   yaw += turn * TURN_SPEED * dt
   faceX = Math.sin(yaw)
   faceZ = -Math.cos(yaw)
@@ -642,6 +654,7 @@ function startMultiplayer(code, isCreator) {
   $('mpbar').style.display = 'flex'
   document.getElementById('hud').style.display = 'none'
   updateScoreboard()
+  maybeHint()
   joinRoom(code, mpProfile(), { onState: mpOnState, onFx: mpOnFx, onTag: mpOnTag, onPresence: mpOnPresence }).then((ok) => {
     if (!ok) showToast('Verbinden mislukt - check je internet')
   })
@@ -920,10 +933,9 @@ function setSceneVisible(v) {
   roundGroup.visible = v
 }
 function setChrome(v) {
-  // HUD + bedieningsknoppen alleen tijdens het spelen tonen
+  // HUD + actieknoppen alleen tijdens het spelen tonen
   const vis = v ? 'visible' : 'hidden'
   document.getElementById('hud').style.visibility = vis
-  document.getElementById('controls').style.visibility = vis
   document.getElementById('actions').style.visibility = vis
 }
 function showIntro() {
@@ -1001,6 +1013,7 @@ function startGame(m) {
   radarBeacon.visible = false
   setCharacter(playerCfg)
   buildRound()
+  maybeHint()
 }
 function showCreator() {
   resumeAudio()
@@ -1100,6 +1113,12 @@ function buildCreatorUI() {
 }
 
 // ---------- Toast ----------
+function maybeHint() {
+  if (IS_TOUCH && !hintShown) {
+    hintShown = true
+    setTimeout(() => showToast('Houd het scherm vast en schuif om te lopen'), 400)
+  }
+}
 let toastTimer = null
 function showToast(text) {
   const el = $('toast')
@@ -1221,28 +1240,32 @@ window.addEventListener('keyup', (e) => {
   const dir = KEYMAP[e.key]
   if (dir) held[dir] = false
 })
-document.querySelectorAll('.dpad-btn').forEach((btn) => {
-  const dir = btn.dataset.dir
-  btn.innerHTML =
-    '<svg viewBox="0 0 24 24" style="transform:rotate(' +
-    { up: 0, right: 90, down: 180, left: 270 }[dir] +
-    'deg)"><path d="M12 5l8 12H4z" fill="currentColor"/></svg>'
-  const on = (e) => {
-    e.preventDefault()
-    resumeAudio()
-    held[dir] = true
-  }
-  const off = () => {
-    held[dir] = false
-  }
-  btn.addEventListener('pointerdown', on)
-  btn.addEventListener('pointerup', off)
-  btn.addEventListener('pointerleave', off)
-  btn.addEventListener('pointercancel', off)
+// Touch (telefoon/tablet): houd het scherm vast om te lopen, schuif je vinger
+// naar links/rechts om te sturen.
+canvas.addEventListener('pointerdown', (e) => {
+  if (status !== 'playing') return
+  touchActive = true
+  touchId = e.pointerId
+  touchStartX = e.clientX
+  touchTurn = 0
+  try {
+    canvas.setPointerCapture(e.pointerId)
+  } catch (err) {}
+  resumeAudio()
 })
-window.addEventListener('pointerup', () => {
-  held.up = held.down = held.left = held.right = false
+canvas.addEventListener('pointermove', (e) => {
+  if (!touchActive || e.pointerId !== touchId) return
+  const range = Math.max(120, window.innerWidth * 0.22)
+  touchTurn = Math.max(-1, Math.min(1, (e.clientX - touchStartX) / range))
 })
+function endTouch(e) {
+  if (e && touchId !== null && e.pointerId !== touchId) return
+  touchActive = false
+  touchTurn = 0
+  touchId = null
+}
+canvas.addEventListener('pointerup', endTouch)
+canvas.addEventListener('pointercancel', endTouch)
 
 // ---------- Knoppen ----------
 $('btnDiamond').addEventListener('click', () => startGame('diamond'))
@@ -1284,6 +1307,12 @@ $('btnJoinRoom').addEventListener('click', () => {
 })
 $('btnLobbyBack').addEventListener('click', showIntro)
 $('btnStop').addEventListener('click', stopMultiplayer)
+
+// terug naar start
+$('btnHome').addEventListener('click', () => {
+  if (inRoom()) stopMultiplayer()
+  else showIntro()
+})
 
 // instellingen
 $('btnSettings').addEventListener('click', showSettings)

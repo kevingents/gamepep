@@ -463,55 +463,8 @@ body {
   color: var(--yellow);
 }
 
-/* ---------- Pijltjes (overlay linksonder) ---------- */
-#controls {
-  position: absolute;
-  left: calc(8px + env(safe-area-inset-left));
-  bottom: calc(12px + env(safe-area-inset-bottom));
-  z-index: 20;
-  display: grid;
-  grid-template-columns: repeat(3, 56px);
-  grid-template-rows: repeat(2, 56px);
-  gap: 6px;
-}
-.dpad-btn {
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: rgba(20, 27, 48, 0.5);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  color: #eef3ff;
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  touch-action: none;
-}
-.dpad-btn:active {
-  background: rgba(85, 112, 160, 0.85);
-  transform: translateY(2px);
-}
-.dpad-btn svg {
-  width: 34px;
-  height: 34px;
-  pointer-events: none;
-}
-.dpad-up {
-  grid-column: 2;
-  grid-row: 1;
-}
-.dpad-left {
-  grid-column: 1;
-  grid-row: 2;
-}
-.dpad-right {
-  grid-column: 3;
-  grid-row: 2;
-}
-.dpad-down {
-  grid-column: 2;
-  grid-row: 2;
-}
+/* Pijltjes zijn vervangen door touch-besturing (vasthouden + schuiven).
+   Desktop gebruikt het toetsenbord. */
 
 /* ---------- Power-ups + scheet/boer (overlay rechtsonder) ---------- */
 #actions {
@@ -568,10 +521,26 @@ body {
   filter: grayscale(0.6);
 }
 
-@media (min-width: 800px) and (pointer: fine) {
-  #controls {
-    grid-template-columns: repeat(3, 52px);
-    grid-template-rows: repeat(2, 52px);
+/* Grotere schermen (tablet): iets ruimere knoppen, makkelijker te tikken */
+@media (min-width: 720px) {
+  #actions {
+    grid-template-columns: repeat(2, 64px);
+    gap: 8px;
+  }
+  .act-btn {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+  }
+  .act-btn svg {
+    width: 30px;
+    height: 30px;
+  }
+  .act-btn span {
+    font-size: 11px;
+  }
+  .hud-item {
+    font-size: 17px;
   }
 }
 
