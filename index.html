@@ -34,6 +34,7 @@
             <button class="arcade-btn" id="btnDiamond">DIAMANTEN ZOEKEN</button>
             <button class="arcade-btn" id="btnTag">TIKKERTJE</button>
             <button class="arcade-btn" id="btnHide">VERSTOPPERTJE</button>
+            <button class="arcade-btn" id="btnMulti">SAMEN SPELEN</button>
             <button class="arcade-btn alt" id="btnCity">ANDERE STAD</button>
             <button class="arcade-btn alt" id="btnCreator">MAAK JE POPJE</button>
           </div>
@@ -75,6 +76,20 @@
             <h1 class="arcade-title small">KIES EEN STAD</h1>
             <div id="cityButtons"></div>
             <button class="arcade-btn alt" id="btnCityBack">TERUG</button>
+          </div>
+        </div>
+
+        <!-- Samen spelen (lobby) -->
+        <div id="lobby" class="screen">
+          <div class="arcade">
+            <h1 class="arcade-title small">SAMEN SPELEN</h1>
+            <p class="arcade-sub">Maak een spel en deel de code, of doe mee met de code van een vriendje.</p>
+            <button class="arcade-btn" id="btnMakeRoom">MAAK SPEL</button>
+            <div class="initials-row">
+              <input id="roomInput" maxlength="4" placeholder="CODE" autocomplete="off" />
+              <button class="arcade-btn small-btn" id="btnJoinRoom">DOE MEE</button>
+            </div>
+            <button class="arcade-btn alt" id="btnLobbyBack">TERUG</button>
           </div>
         </div>
       </main>
@@ -123,6 +138,13 @@
           <svg viewBox="0 0 24 24"><circle cx="9" cy="14" r="3.4" fill="currentColor"/><circle cx="15" cy="10" r="2.6" fill="currentColor"/><circle cx="16.5" cy="16" r="1.7" fill="currentColor"/></svg>
           <span>Boer</span>
         </button>
+      </div>
+
+      <!-- Multiplayer-balk (code + scorebord) -->
+      <div id="mpbar">
+        <div id="mpCode"></div>
+        <div id="scoreboard"></div>
+        <button id="btnStop">STOP</button>
       </div>
     </div>
 

@@ -574,3 +574,84 @@ body {
     grid-template-rows: repeat(2, 52px);
   }
 }
+
+/* ---------- Multiplayer-balk ---------- */
+#mpbar {
+  position: absolute;
+  top: calc(8px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: 84%;
+  pointer-events: none;
+}
+#mpCode {
+  font-family: var(--arcade);
+  font-size: 12px;
+  color: var(--yellow);
+  background: rgba(11, 16, 32, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 5px 12px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+#scoreboard {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  max-width: 240px;
+}
+.sb-row {
+  font-size: 13px;
+  font-weight: 700;
+  color: #eef3ff;
+  background: rgba(11, 16, 32, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 3px 10px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.sb-row b {
+  color: var(--accent);
+}
+.sb-row.it {
+  border-color: var(--pink);
+  color: var(--pink);
+}
+.sb-row.it b {
+  color: var(--pink);
+}
+#btnStop {
+  pointer-events: auto;
+  border: none;
+  font-family: var(--arcade);
+  font-size: 11px;
+  color: #2a2200;
+  background: var(--yellow);
+  padding: 6px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+#roomInput {
+  font-family: var(--arcade);
+  font-size: 20px;
+  text-transform: uppercase;
+  text-align: center;
+  letter-spacing: 4px;
+  width: 140px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 3px solid var(--accent);
+  background: #0c1426;
+  color: var(--text);
+}

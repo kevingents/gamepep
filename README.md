@@ -21,6 +21,11 @@ omhoog = vooruit, links/rechts = draaien, omlaag = achteruit.
   schoenen, bril, pet) en kies een naam. Wordt onthouden.
 - **Weetjes per stad**: loop je naar een gebouw, dan verschijnt een leuk feitje
   over die plek.
+- **Samen spelen** (multiplayer via Supabase Realtime): maak een spel met een
+  code, vriendjes doen mee en lopen samen door de stad — tikkertje met punten,
+  en scheet/boer naar elkaar.
+- **Power-ups**: radar, supersnelheid en "reus". Plus een scheet- en boerknop.
+- **Online highscores** per stad (wereldwijd, via Supabase).
 - **Arcade-intro**, punten, rondes en **GAME OVER** met highscore-lijst.
 
 > De highscores staan nu nog **lokaal** (op het apparaat). De opzet is zo

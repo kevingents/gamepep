@@ -4,6 +4,7 @@ import { sfx, resumeAudio } from './sfx.js'
 import { buildCity, CITIES } from './city.js'
 import { makeCharacter, loadCfg, saveCfg, PARTS } from './character.js'
 import { refresh, cachedTop, cachedTopScore, qualifies, submit } from './scores.js'
+import { joinRoom, leaveRoom, sendState, sendFx, sendTag, makeCode, inRoom } from './multiplayer.js'
 
 // =====================================================================
 //  Diamant Haarlem - een 3D arcade-game in Minecraft-stijl.
@@ -214,6 +215,21 @@ let npcs = []
 let totalDiamonds = 0
 let totalKids = 0
 let timeLeft = 0
+// multiplayer
+const mpId = 'p' + Math.floor(Math.random() * 1e9).toString(36)
+let mpPlayers = {} // id -> { name, cfg, mesh, tag, x, z, tx, tz, yaw, phase, points }
+let currentIt = null
+let myPoints = 0
+let mpCode = null
+let mpCitySynced = false
+let stateThrottle = 0
+let tagCool = 0
+const itMarker = new THREE.Mesh(
+  new THREE.ConeGeometry(0.45, 0.8, 4),
+  new THREE.MeshBasicMaterial({ color: 0xff2e63 })
+)
+itMarker.visible = false
+scene.add(itMarker)
 let playerName = loadName()
 let nameTag = null
 let shownFacts = new Set()
@@ -504,7 +520,12 @@ function activatePower(key) {
   // (later: ook naar je vriendjes sturen)
 }
 function nearestTarget() {
-  const arr = mode === 'diamond' ? diamonds.filter((d) => !d.collected) : npcs.filter((n) => !n.caught)
+  const arr =
+    mode === 'mp'
+      ? Object.values(mpPlayers)
+      : mode === 'diamond'
+        ? diamonds.filter((d) => !d.collected)
+        : npcs.filter((n) => !n.caught)
   let best = null
   let bd = Infinity
   for (const t of arr) {
@@ -543,7 +564,208 @@ function playSocial(which) {
   resumeAudio()
   if (which === 'fart') sfx.fart()
   else sfx.burp()
-  // (later: ook naar je vriendjes sturen)
+  if (inRoom()) sendFx(which) // naar je vriendjes
+}
+
+// ---------- Multiplayer ----------
+function mpProfile() {
+  return { id: mpId, name: playerName || 'Speler', cfg: playerCfg, city: cityKey() }
+}
+function startMultiplayer(code, isCreator) {
+  resumeAudio()
+  mpCode = code
+  mpCitySynced = isCreator
+  currentIt = isCreator ? mpId : null
+  myPoints = 0
+  clearRemotes()
+  if (isCreator) buildCurrentCity()
+  mode = 'mp'
+  status = 'playing'
+  setSceneVisible(true)
+  setChrome(true)
+  hideAllScreens()
+  hideFact()
+  shownFacts = new Set()
+  setCharacter(playerCfg)
+  clearRound()
+  steveX = START.x
+  steveZ = START.z
+  yaw = START_YAW
+  faceX = Math.sin(yaw)
+  faceZ = -Math.cos(yaw)
+  player.visible = false
+  for (const k of POWER_KEYS) {
+    POWERS[k].t = 0
+    POWERS[k].cool = 0
+  }
+  soundCool = 0
+  tagCool = 1
+  radarBeacon.visible = false
+  camera.fov = 70
+  camera.updateProjectionMatrix()
+  firstPersonCam()
+  $('mpCode').textContent = 'Code: ' + code
+  $('mpbar').style.display = 'flex'
+  document.getElementById('hud').style.display = 'none'
+  updateScoreboard()
+  joinRoom(code, mpProfile(), { onState: mpOnState, onFx: mpOnFx, onTag: mpOnTag, onPresence: mpOnPresence }).then((ok) => {
+    if (!ok) showToast('Verbinden mislukt - check je internet')
+  })
+}
+function stopMultiplayer() {
+  leaveRoom()
+  clearRemotes()
+  mpCode = null
+  mode = 'diamond'
+  $('mpbar').style.display = 'none'
+  document.getElementById('hud').style.display = ''
+  showIntro()
+}
+function clearRemotes() {
+  for (const id in mpPlayers) removeRemote(id)
+  mpPlayers = {}
+  itMarker.visible = false
+}
+function addRemote(meta) {
+  const mesh = makeCharacter(meta.cfg || {})
+  mesh.position.set(START.x, 0, START.z)
+  scene.add(mesh)
+  const tag = makeTagSprite(meta.name || 'Speler')
+  scene.add(tag)
+  mpPlayers[meta.id] = { name: meta.name || 'Speler', mesh, tag, x: START.x, z: START.z, tx: START.x, tz: START.z, yaw: 0, phase: 0, points: 0 }
+}
+function removeRemote(id) {
+  const rp = mpPlayers[id]
+  if (!rp) return
+  scene.remove(rp.mesh)
+  scene.remove(rp.tag)
+  delete mpPlayers[id]
+}
+function updateRemote(rp, dt) {
+  const k = Math.min(1, dt * 10)
+  const ox = rp.x
+  const oz = rp.z
+  rp.x += (rp.tx - rp.x) * k
+  rp.z += (rp.tz - rp.z) * k
+  const moved = Math.hypot(rp.x - ox, rp.z - oz)
+  rp.mesh.position.set(rp.x, 0, rp.z)
+  rp.mesh.rotation.y = rp.yaw
+  const u = rp.mesh.userData
+  if (moved > 0.002) {
+    rp.phase += dt * 11
+    const sw = Math.sin(rp.phase) * 0.6
+    u.lLeg.rotation.x = sw
+    u.rLeg.rotation.x = -sw
+    u.lArm.rotation.x = -sw
+    u.rArm.rotation.x = sw
+  }
+  rp.tag.position.set(rp.x, 2.9, rp.z)
+}
+function mpOnState(p) {
+  if (!p || p.id === mpId) return
+  const rp = mpPlayers[p.id]
+  if (!rp) return
+  rp.tx = p.x
+  rp.tz = p.z
+  rp.yaw = p.yaw
+  if (p.it) currentIt = p.id
+}
+function mpOnFx(p) {
+  if (!p || p.id === mpId) return
+  if (p.kind === 'fart') sfx.fart()
+  else sfx.burp()
+  const rp = mpPlayers[p.id]
+  showToast((rp ? rp.name : 'Iemand') + (p.kind === 'fart' ? ' deed een scheet!' : ' liet een boer!'))
+}
+function mpOnTag(p) {
+  if (!p) return
+  currentIt = p.to
+  if (p.from === mpId) myPoints += 1
+  else if (mpPlayers[p.from]) mpPlayers[p.from].points += 1
+  const fromName = p.from === mpId ? playerName || 'Jij' : mpPlayers[p.from] ? mpPlayers[p.from].name : 'Iemand'
+  const toName = p.to === mpId ? playerName || 'jou' : mpPlayers[p.to] ? mpPlayers[p.to].name : 'iemand'
+  showToast(fromName + ' tikte ' + toName + '!')
+  tagCool = 1.5
+  updateScoreboard()
+}
+function mpOnPresence(state) {
+  const present = {}
+  for (const key in state) {
+    for (const meta of state[key]) {
+      if (!meta || !meta.id) continue
+      present[meta.id] = meta
+      if (meta.id === mpId) continue
+      if (!mpPlayers[meta.id]) addRemote(meta)
+    }
+  }
+  for (const id in mpPlayers) if (!present[id]) removeRemote(id)
+  if (!mpCitySynced) {
+    for (const id in present) {
+      if (id === mpId) continue
+      if (present[id].city) {
+        adoptCity(present[id].city)
+        mpCitySynced = true
+        break
+      }
+    }
+  }
+  updateScoreboard()
+}
+function adoptCity(ck) {
+  const idx = CITIES.findIndex((c) => c.key === ck)
+  if (idx >= 0 && idx !== cityIndex) {
+    cityIndex = idx
+    buildCurrentCity()
+  }
+}
+function updateScoreboard() {
+  const rows = [{ name: (playerName || 'Jij') + ' (jij)', points: myPoints, it: currentIt === mpId }]
+  for (const id in mpPlayers) rows.push({ name: mpPlayers[id].name, points: mpPlayers[id].points, it: currentIt === id })
+  rows.sort((a, b) => b.points - a.points)
+  $('scoreboard').innerHTML = rows
+    .map((r) => '<div class="sb-row' + (r.it ? ' it' : '') + '">' + (r.it ? '(TIK) ' : '') + r.name + ' <b>' + r.points + '</b></div>')
+    .join('')
+}
+function updateMultiplayer(dt) {
+  stateThrottle -= dt
+  if (stateThrottle <= 0) {
+    stateThrottle = 0.08
+    sendState({ x: +steveX.toFixed(2), z: +steveZ.toFixed(2), yaw: +yaw.toFixed(2), it: currentIt === mpId })
+  }
+  for (const id in mpPlayers) updateRemote(mpPlayers[id], dt)
+  if (tagCool > 0) tagCool -= dt
+  if (currentIt === mpId && tagCool <= 0) {
+    for (const id in mpPlayers) {
+      const rp = mpPlayers[id]
+      const dx = rp.x - steveX
+      const dz = rp.z - steveZ
+      if (dx * dx + dz * dz < 0.95 * 0.95) {
+        sendTag(id)
+        mpOnTag({ from: mpId, to: id })
+        break
+      }
+    }
+  }
+  if (currentIt && currentIt !== mpId && mpPlayers[currentIt]) {
+    const rp = mpPlayers[currentIt]
+    itMarker.visible = true
+    itMarker.position.set(rp.x, 3.3, rp.z)
+    itMarker.rotation.y += dt * 2
+  } else {
+    itMarker.visible = false
+  }
+}
+function showLobby() {
+  resumeAudio()
+  status = 'lobby'
+  setSceneVisible(true)
+  setChrome(false)
+  player.visible = false
+  setOverviewCam()
+  hideAllScreens()
+  hideFact()
+  $('roomInput').value = ''
+  $('lobby').classList.add('show')
 }
 function hit() {
   lives -= 1
@@ -631,6 +853,7 @@ function hideAllScreens() {
   $('creator').classList.remove('show')
   $('gameover').classList.remove('show')
   $('cityscreen').classList.remove('show')
+  $('lobby').classList.remove('show')
 }
 function setSceneVisible(v) {
   ground.visible = v
@@ -648,6 +871,8 @@ function showIntro() {
   status = 'intro'
   setSceneVisible(true)
   setChrome(false)
+  $('mpbar').style.display = 'none'
+  document.getElementById('hud').style.display = ''
   player.visible = false
   setOverviewCam()
   hideAllScreens()
@@ -690,6 +915,12 @@ function buildCityButtons() {
 }
 function startGame(m) {
   mode = m || 'diamond'
+  if (inRoom()) {
+    leaveRoom()
+    clearRemotes()
+  }
+  $('mpbar').style.display = 'none'
+  document.getElementById('hud').style.display = ''
   resumeAudio()
   sfx.start()
   status = 'playing'
@@ -980,6 +1211,16 @@ $('btnGiant').addEventListener('click', () => activatePower('giant'))
 $('btnFart').addEventListener('click', () => playSocial('fart'))
 $('btnBurp').addEventListener('click', () => playSocial('burp'))
 
+// multiplayer
+$('btnMulti').addEventListener('click', showLobby)
+$('btnMakeRoom').addEventListener('click', () => startMultiplayer(makeCode(), true))
+$('btnJoinRoom').addEventListener('click', () => {
+  const code = ($('roomInput').value || '').trim().toUpperCase()
+  if (code.length >= 3) startMultiplayer(code, false)
+})
+$('btnLobbyBack').addEventListener('click', showIntro)
+$('btnStop').addEventListener('click', stopMultiplayer)
+
 // ---------- Schermgrootte ----------
 function resize() {
   const stage = canvas.parentElement
@@ -1001,9 +1242,15 @@ function frame(now) {
   world.update(dt) // molenwieken + auto's draaien altijd
   if (status === 'playing') {
     updatePlayer(dt)
-    if (mode === 'diamond') updateCreepers(dt)
-    else updateNPCs(dt)
-    checkCollisions()
+    if (mode === 'mp') {
+      updateMultiplayer(dt)
+    } else if (mode === 'diamond') {
+      updateCreepers(dt)
+      checkCollisions()
+    } else {
+      updateNPCs(dt)
+      checkCollisions()
+    }
     for (const k of POWER_KEYS) {
       const p = POWERS[k]
       if (p.t > 0) p.t -= dt
@@ -1011,7 +1258,7 @@ function frame(now) {
     }
     if (soundCool > 0) soundCool -= dt
     updateActionButtons()
-    if (status === 'playing' && mode !== 'diamond') {
+    if (status === 'playing' && (mode === 'tag' || mode === 'hide')) {
       timeLeft -= dt
       hud.timer.textContent = fmtTime(timeLeft)
       if (timeLeft <= 0) {
