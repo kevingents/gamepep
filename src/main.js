@@ -163,6 +163,7 @@ const worldGroup = new THREE.Group()
 scene.add(worldGroup)
 let cityIndex = loadCity()
 let world = buildCity(worldGroup, GRID, CITIES[cityIndex])
+Object.assign(START, world.start) // elke stad heeft zijn eigen startplek (Haarlem: de Grote Markt)
 const roundGroup = new THREE.Group()
 scene.add(roundGroup)
 
@@ -217,6 +218,7 @@ function buildCurrentCity() {
     })
   }
   world = buildCity(worldGroup, GRID, CITIES[cityIndex])
+  Object.assign(START, world.start)
   shownFacts = new Set()
 }
 

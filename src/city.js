@@ -9,7 +9,7 @@ const matOf = (c) => (matCache[c] || (matCache[c] = new THREE.MeshLambertMateria
 
 const ROADS = [7, 14, 21, 28, 35]
 const onRoad = (v) => ROADS.indexOf(v) !== -1
-const START = { x: 21.5, z: 24.5 } // op straat, vrij van gebouwen, voor elke stad
+const START = { x: 84.5, z: 98.5 } // op een kruising, vrij van gebouwen (rooster-steden)
 
 function makeLabel(text, scale = 1) {
   const fs = 34
@@ -419,8 +419,14 @@ export function buildCity(group, GRID, city) {
     for (const L of ROADS) d = Math.min(d, Math.abs(v - L))
     distAxis[v] = d
   }
-  const isRoadCell = (x, z) => distAxis[x] <= 1 || distAxis[z] <= 1
-  const isSideCell = (x, z) => !isRoadCell(x, z) && (distAxis[x] === 2 || distAxis[z] === 2)
+  // isRoadCell/isSideCell werken op het wegcellen-veld (rd), dat hieronder wordt
+  // opgebouwd - voor rooster-steden en voor de nagetekende Haarlem-kaart.
+  function isRoadCell(x, z) {
+    return rdAt(x, z) === 0
+  }
+  function isSideCell(x, z) {
+    return rdAt(x, z) === 1
+  }
 
   // stabiele willekeur per stad
   let citySeed = 0
@@ -440,6 +446,101 @@ export function buildCity(group, GRID, city) {
     if (r < 0.92) return 'water'
     return 'plaza'
   }
+
+  // ---------- Wegennet: rooster (meeste steden) of echte plattegrond (Haarlem) ----------
+  // Haarlem is met de hand nagetekend van de echte kaart: kromme straten, de
+  // diagonale Gedempte Oude Gracht en het Spaarne met zijn echte S-bocht.
+  const isHaarlem = city.key === 'haarlem'
+  const roadKind = new Uint8Array(GRID * GRID) // 0=geen, 1=asfalt, 2=winkelstraat, 3=steegje
+  const cellIdx = (x, z) => x * GRID + z
+  const paintCell = (x, z, kind) => {
+    if (x < 1 || z < 1 || x >= GRID - 1 || z >= GRID - 1) return
+    const i = cellIdx(x, z)
+    if (roadKind[i] === 0 || kind < roadKind[i]) roadKind[i] = kind
+  }
+  function paintPolyline(pts, width, kind) {
+    const r = (width - 1) / 2
+    for (let s = 0; s < pts.length - 1; s++) {
+      const ax = pts[s][0]
+      const az = pts[s][1]
+      const bx = pts[s + 1][0]
+      const bz = pts[s + 1][1]
+      const steps = Math.max(1, Math.ceil(Math.max(Math.abs(bx - ax), Math.abs(bz - az)) * 2))
+      for (let t = 0; t <= steps; t++) {
+        const px = ax + ((bx - ax) * t) / steps
+        const pz = az + ((bz - az) * t) / steps
+        for (let ox = Math.floor(px - r - 0.5); ox <= Math.floor(px + r + 0.5); ox++)
+          for (let oz = Math.floor(pz - r - 0.5); oz <= Math.floor(pz + r + 0.5); oz++)
+            if (Math.abs(ox + 0.5 - px) <= r + 0.5 && Math.abs(oz + 0.5 - pz) <= r + 0.5) paintCell(ox, oz, kind)
+      }
+    }
+  }
+  // De echte straten van Haarlem (x: west->oost, z: noord->zuid)
+  const H_STREETS = isHaarlem
+    ? [
+        { n: 'Kruisweg', w: 3, k: 1, p: [[74, 4], [74, 20], [74, 34]] },
+        { n: 'Kruisstraat', w: 3, k: 2, p: [[74, 34], [75, 46], [76, 58], [76, 64]] },
+        { n: 'Grote Houtstraat', w: 3, k: 2, p: [[76, 70], [75, 80], [74, 90], [73, 100], [73, 110]] },
+        { n: 'Dreef', w: 3, k: 1, p: [[73, 110], [72, 122], [71, 136], [70, 150]] },
+        { n: 'Zijlstraat', w: 3, k: 1, p: [[52, 64], [64, 65], [74, 66]] },
+        { n: 'Damstraat', w: 2, k: 3, p: [[82, 68], [92, 69], [102, 70], [114, 70]] },
+        { n: 'Gedempte Oude Gracht', w: 3, k: 1, p: [[52, 86], [66, 82], [78, 78], [90, 74], [100, 72], [109, 71]] },
+        { n: 'Jansstraat', w: 2, k: 3, p: [[78, 62], [80, 50], [81, 38], [79, 24], [77, 12]] },
+        { n: 'Spaarne-kade', w: 2, k: 3, p: [[106, 32], [108, 44], [110, 56], [112, 66], [113, 70], [110, 80], [106, 90], [101, 102], [97, 114], [94, 126]] },
+        { n: 'Antoniestraat', w: 2, k: 3, p: [[76, 92], [86, 93], [96, 94]] },
+        { n: 'Gasthuisvest', w: 3, k: 1, p: [[54, 113], [70, 114], [86, 115], [94, 116]] },
+        { n: 'Parklaan', w: 2, k: 3, p: [[54, 40], [70, 40], [86, 41], [100, 42]] },
+        { n: 'Catharijnebrug-route', w: 3, k: 1, p: [[100, 33], [110, 33], [122, 34]] },
+        { n: 'Langebrug-route', w: 2, k: 3, p: [[96, 111], [104, 112], [112, 113]] },
+        { n: 'Spaarnwouderstraat', w: 2, k: 3, p: [[120, 71], [128, 73], [143, 74]] },
+        { n: 'Lange Herenvest', w: 2, k: 3, p: [[134, 104], [136, 90], [137, 74], [136, 60], [134, 46], [128, 38], [122, 34]] },
+        { n: 'Burgwal-zuid', w: 2, k: 3, p: [[134, 104], [126, 112], [114, 116], [106, 114]] },
+        { n: 'Molenpad', w: 1, k: 3, p: [[128, 38], [122, 31]] },
+        { n: 'Houtpaden', w: 1, k: 3, p: [[70, 132], [80, 134], [86, 142]] },
+      ]
+    : null
+  if (isHaarlem) {
+    for (const st of H_STREETS) paintPolyline(st.p, st.w, st.k)
+  } else {
+    for (const R of ROADS) {
+      for (let v = 0; v < GRID; v++) {
+        for (let d = -1; d <= 1; d++) {
+          paintCell(R + d, v, 1)
+          paintCell(v, R + d, 1)
+        }
+      }
+    }
+  }
+  // afstand tot de dichtstbijzijnde wegcel (voor stoepen en huizen aan de straat)
+  const rd = new Uint8Array(GRID * GRID).fill(99)
+  {
+    let queue = []
+    for (let x = 0; x < GRID; x++)
+      for (let z = 0; z < GRID; z++)
+        if (roadKind[cellIdx(x, z)] > 0) {
+          rd[cellIdx(x, z)] = 0
+          queue.push(x, z)
+        }
+    let depth = 0
+    while (queue.length && depth < 6) {
+      depth++
+      const next = []
+      for (let q = 0; q < queue.length; q += 2) {
+        const qx = queue[q]
+        const qz = queue[q + 1]
+        for (const [ox, oz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = qx + ox
+          const nz = qz + oz
+          if (nx < 0 || nz < 0 || nx >= GRID || nz >= GRID) continue
+          if (rd[cellIdx(nx, nz)] <= depth) continue
+          rd[cellIdx(nx, nz)] = depth
+          next.push(nx, nz)
+        }
+      }
+      queue = next
+    }
+  }
+  const rdAt = (x, z) => (x < 0 || z < 0 || x >= GRID || z >= GRID ? 99 : rd[cellIdx(x, z)])
 
   // basis-bouwstenen voor water (1 cel water = niet beloopbaar)
   const water = (x, z) => {
@@ -583,7 +684,7 @@ export function buildCity(group, GRID, city) {
       for (let z = Math.max(4, Math.floor(cz)); z <= Math.min(GRID - 2, Math.ceil(cz + r + 1)); z++) {
         const d = Math.hypot(x + 0.5 - cx, z + 0.5 - cz)
         if (Math.abs(d - r) >= 0.55) continue
-        if (distAxis[x] <= 1 || distAxis[z] <= 1) deckCell(x, z)
+        if (rdAt(x, z) === 0) deckCell(x, z)
         else water(x, z)
       }
     }
@@ -591,12 +692,12 @@ export function buildCity(group, GRID, city) {
   function rectRing(x0, z0, x1, z1) {
     for (let x = x0; x <= x1; x++)
       for (const z of [z0, z1]) {
-        if (distAxis[x] <= 1 || distAxis[z] <= 1) deckCell(x, z)
+        if (rdAt(x, z) === 0) deckCell(x, z)
         else water(x, z)
       }
     for (let z = z0; z <= z1; z++)
       for (const x of [x0, x1]) {
-        if (distAxis[x] <= 1 || distAxis[z] <= 1) deckCell(x, z)
+        if (rdAt(x, z) === 0) deckCell(x, z)
         else water(x, z)
       }
   }
@@ -605,7 +706,7 @@ export function buildCity(group, GRID, city) {
       for (let z = Math.floor(cz - rz); z <= Math.ceil(cz + rz); z++) {
         const nx = (x + 0.5 - cx) / rx
         const nz = (z + 0.5 - cz) / rz
-        if (nx * nx + nz * nz <= 1 && distAxis[x] > 1 && distAxis[z] > 1) water(x, z)
+        if (nx * nx + nz * nz <= 1 && rdAt(x, z) >= 1) water(x, z)
       }
   }
   function bandWater(side, w) {
@@ -614,59 +715,71 @@ export function buildCity(group, GRID, city) {
   }
 
   // De plattegrond per stad - herkenbaar van de echte kaart
-  if (city.key === 'haarlem') {
-    const spaarne = (z) => GRID * 0.72 + Math.sin(z * 0.05) * 5
-    riverV(spaarne, 4, [ROADS[3], ROADS[7]], [ROADS[4]]) // het Spaarne
+  if (isHaarlem) {
+    // --- het water van de echte kaart ---
+    const wSeen = new Set()
+    const waterLine = (pts, width) => {
+      const r = (width - 1) / 2
+      for (let s = 0; s < pts.length - 1; s++) {
+        const ax = pts[s][0]
+        const az = pts[s][1]
+        const bx = pts[s + 1][0]
+        const bz = pts[s + 1][1]
+        const steps = Math.max(1, Math.ceil(Math.max(Math.abs(bx - ax), Math.abs(bz - az)) * 2))
+        for (let t = 0; t <= steps; t++) {
+          const px = ax + ((bx - ax) * t) / steps
+          const pz = az + ((bz - az) * t) / steps
+          for (let ox = Math.floor(px - r - 0.5); ox <= Math.floor(px + r + 0.5); ox++)
+            for (let oz = Math.floor(pz - r - 0.5); oz <= Math.floor(pz + r + 0.5); oz++) {
+              if (Math.abs(ox + 0.5 - px) > r + 0.5 || Math.abs(oz + 0.5 - pz) > r + 0.5) continue
+              const wk = ox + ',' + oz
+              if (wSeen.has(wk)) continue
+              wSeen.add(wk)
+              if (ox >= 115 && ox <= 119 && oz >= 69 && oz <= 71) continue // gat voor de Gravestenenbrug
+              if (roadKind[cellIdx(ox, oz)] > 0) box('#9a6a3e', 1, 0.06, 1, ox + 0.5, 0.03, oz + 0.5) // brugdek
+              else water(ox, oz)
+            }
+        }
+      }
+    }
+    // het Spaarne met zijn echte S-bocht om de Burgwal heen
+    waterLine([[92, 156], [94, 144], [96, 132], [98, 122], [102, 112], [108, 102], [113, 92], [116, 82], [117, 72], [116, 62], [113, 54], [111, 46], [112, 38], [115, 30], [118, 20], [120, 10], [121, 2]], 5)
+    waterLine([[54, 42], [108, 44]], 2) // de Nieuwe Gracht
+    waterLine([[95, 44], [96, 54], [98, 62], [104, 65], [111, 67]], 1) // de Bakenessergracht
+    waterLine([[50, 16], [50, 140]], 2) // de Leidsevaart (westkant)
+    waterLine([[50, 116], [64, 117], [78, 118], [90, 119], [95, 120]], 2) // Gasthuisvest en Kampersingel
+    waterLine([[142, 40], [141, 60], [140, 80], [139, 96], [137, 112]], 2) // de Herensingel, achter de Poort
+    // leuningen op de twee vaste Spaarne-bruggen (Catharijnebrug en Langebrug)
+    box('#6f4a2e', 9, 0.32, 0.14, 114.5, 0.13, 31.4)
+    box('#6f4a2e', 9, 0.32, 0.14, 114.5, 0.13, 35.6)
+    box('#6f4a2e', 8, 0.32, 0.14, 103, 0.13, 110.4)
+    box('#6f4a2e', 8, 0.32, 0.14, 103, 0.13, 114.6)
     // de Gravestenenbrug: de witte ophaalbrug over het Spaarne
-    makeDrawbridge(Math.round(spaarne(ROADS[4])) - 2, ROADS[4], 'x', 4, '#f2efe6')
-    canalV(Math.round(GRID * 0.56), Math.round(GRID * 0.1), Math.round(GRID * 0.6), ROADS[2]) // de Bakenessergracht
+    reserveRect(115, 69, 5, 3) // het bruggat vrijhouden van huizen
+    makeDrawbridge(115, 70, 'x', 5, '#f2efe6')
     // de Grote Markt: plaveisel rond de Grote Kerk
-    reserveRect(72, 73, 12, 12)
-    for (let px = 72; px < 84; px++)
-      for (let pz = 73; pz < 85; pz++) {
-        if (distAxis[px] <= 2 || distAxis[pz] <= 2) continue
+    reserveRect(70, 60, 14, 12)
+    for (let px = 70; px < 84; px++)
+      for (let pz = 60; pz < 72; pz++) {
+        if (rdAt(px, pz) === 0) continue
         box('#cdc4b0', 1, 0.05, 1, px + 0.5, 0, pz + 0.5)
       }
-    // de Grote Houtstraat: autovrije winkelstraat met lantaarns en vlaggetjes
-    const GH = ROADS[5]
-    box('#cdc4b0', 3, 0.03, 70, GH + 0.5, 0.045, 121)
-    for (let z = 90; z < GRID - 6; z += 7) {
-      box('#2a2f3a', 0.12, 2.6, 0.12, GH - 1.2, 0, z + 0.5)
-      box('#2a2f3a', 0.12, 2.6, 0.12, GH + 2.2, 0, z + 0.5)
-      box('#caa23a', 3.6, 0.05, 0.06, GH + 0.5, 2.5, z + 0.5)
-      const vlagCols = ['#e63946', '#ffd166', '#3a6ff7', '#4caf50', '#ff7ab6']
-      for (let i = 0; i < 5; i++) box(vlagCols[i], 0.2, 0.24, 0.05, GH - 0.9 + i * 0.7, 2.26, z + 0.5)
+    // vlaggetjes boven de Grote Houtstraat
+    const vlagCols = ['#e63946', '#ffd166', '#3a6ff7', '#4caf50', '#ff7ab6']
+    for (let i = 0; i < 5; i++) {
+      const fz = 76 + i * 7
+      const fx = 76 - (fz - 70) * 0.07
+      box('#2a2f3a', 0.12, 2.6, 0.12, fx - 1.7, 0, fz)
+      box('#2a2f3a', 0.12, 2.6, 0.12, fx + 1.7, 0, fz)
+      box('#caa23a', 3.5, 0.05, 0.06, fx, 2.5, fz)
+      for (let vi = 0; vi < 5; vi++) box(vlagCols[vi], 0.2, 0.24, 0.05, fx - 1.4 + vi * 0.7, 2.26, fz)
     }
-    // de singel om het centrum (zoals de echte vesten), aansluitend op het Spaarne
-    const singelRow = (zc, xa, xb) => {
-      for (let px = xa; px <= xb; px++) {
-        if (distAxis[px] <= 1) deckCell(px, zc)
-        else water(px, zc)
-      }
-    }
-    singelRow(59, 59, Math.round(spaarne(59)) - 3) // noordkant (de Nieuwe Gracht)
-    singelRow(109, 59, Math.round(spaarne(109)) - 3) // zuidkant (de Kampersingel)
-    for (let pz = 60; pz <= 108; pz++) {
-      if (distAxis[pz] <= 1) deckCell(59, pz)
-      else water(59, pz) // westkant
-    }
-    // steegjes door het centrum, zoals de Jansstraat en de Zijlstraat
-    reserveRect(78, 30, 1, 43)
-    for (let pz = 30; pz < 73; pz++) {
-      if (distAxis[pz] <= 2) continue
-      box('#cdc4b0', 1, 0.05, 1, 78.5, 0, pz + 0.5)
-    }
-    reserveRect(60, 79, 12, 1)
-    for (let px = 60; px < 72; px++) {
-      if (distAxis[px] <= 2) continue
-      box('#cdc4b0', 1, 0.05, 1, px + 0.5, 0, 79.5)
-    }
-    // de Haarlemmerhout: het oudste stadsbos, met een vijver
-    reserveRect(40, 138, 26, 16)
-    bigPond(58, 146, 4, 2.5)
-    for (let px = 40; px < 66; px++)
-      for (let pz = 138; pz < 154; pz++) {
-        if (distAxis[px] <= 2 || distAxis[pz] <= 2) continue
+    // de Haarlemmerhout: stadsbos met vijver, met de Dreef erdoorheen
+    reserveRect(56, 124, 34, 28)
+    bigPond(82, 140, 4, 3)
+    for (let px = 56; px < 90; px++)
+      for (let pz = 124; pz < 152; pz++) {
+        if (rdAt(px, pz) <= 1) continue
         const hk = px + ',' + pz
         if (solids.has(hk)) continue
         box('#5da848', 1, 0.05, 1, px + 0.5, 0, pz + 0.5)
@@ -744,24 +857,36 @@ export function buildCity(group, GRID, city) {
   let trainDir = 1
 
   // Straten + stoepen + wegmarkering
-  for (const R of ROADS) {
-    box('#3a3f46', 3, 0.04, GRID, R + 0.5, 0, GRID / 2)
-    box('#3a3f46', GRID, 0.04, 3, GRID / 2, 0, R + 0.5)
-    for (const d of [-2, 2]) {
-      box('#9aa0a8', 1, 0.05, GRID, R + d + 0.5, 0.005, GRID / 2) // stoep
-      box('#9aa0a8', GRID, 0.05, 1, GRID / 2, 0.005, R + d + 0.5)
-    }
-    for (let t = 1; t < GRID; t += 2) {
-      box('#e8c54a', 0.12, 0.05, 0.5, R + 0.5, 0.012, t + 0.25)
-      box('#e8c54a', 0.5, 0.05, 0.12, t + 0.25, 0.012, R + 0.5)
+  if (isHaarlem) {
+    // per cel: asfalt, winkelstraat-plaveisel, steegje of stoep
+    for (let x = 1; x < GRID - 1; x++)
+      for (let z = 1; z < GRID - 1; z++) {
+        const kind = roadKind[cellIdx(x, z)]
+        if (kind === 1) box('#3a3f46', 1, 0.04, 1, x + 0.5, 0, z + 0.5)
+        else if (kind === 2) box('#cdc4b0', 1, 0.05, 1, x + 0.5, 0, z + 0.5)
+        else if (kind === 3) box('#b8b2a4', 1, 0.045, 1, x + 0.5, 0, z + 0.5)
+        else if (rd[cellIdx(x, z)] === 1) box('#9aa0a8', 1, 0.05, 1, x + 0.5, 0.005, z + 0.5)
+      }
+  } else {
+    for (const R of ROADS) {
+      box('#3a3f46', 3, 0.04, GRID, R + 0.5, 0, GRID / 2)
+      box('#3a3f46', GRID, 0.04, 3, GRID / 2, 0, R + 0.5)
+      for (const d of [-2, 2]) {
+        box('#9aa0a8', 1, 0.05, GRID, R + d + 0.5, 0.005, GRID / 2) // stoep
+        box('#9aa0a8', GRID, 0.05, 1, GRID / 2, 0.005, R + d + 0.5)
+      }
+      for (let t = 1; t < GRID; t += 2) {
+        box('#e8c54a', 0.12, 0.05, 0.5, R + 0.5, 0.012, t + 0.25)
+        box('#e8c54a', 0.5, 0.05, 0.12, t + 0.25, 0.012, R + 0.5)
+      }
     }
   }
 
   // Herkenningspunten
   const landmarks = []
   for (const lm of city.landmarks) {
-    const lx = lm.x * S
-    const lz = lm.z * S
+    const lx = city.abs ? lm.x : lm.x * S
+    const lz = city.abs ? lm.z : lm.z * S
     reserveRect(Math.floor(lx) - 2, Math.floor(lz) - 2, 5, 5)
     buildLandmark(ctx, { ...lm, x: lx, z: lz })
     label(lm.label || lm.name, lx, lm.labelY || 6, lz, lm.labelScale || 1.1)
@@ -836,10 +961,16 @@ export function buildCity(group, GRID, city) {
   }
 
   // Bomen op de stoep
-  for (const R of ROADS) {
-    for (let t = 4; t < GRID - 3; t += 3) {
-      if (distAxis[t] >= 3 && rnd() < 0.5) tree(R - 2, t)
-      if (distAxis[t] >= 3 && rnd() < 0.5) tree(R + 2, t)
+  if (isHaarlem) {
+    for (let x = 2; x < GRID - 2; x++)
+      for (let z = 2; z < GRID - 2; z++)
+        if (rd[cellIdx(x, z)] === 1 && (x * 13 + z * 7) % 9 === 0) tree(x, z)
+  } else {
+    for (const R of ROADS) {
+      for (let t = 4; t < GRID - 3; t += 3) {
+        if (distAxis[t] >= 3 && rnd() < 0.5) tree(R - 2, t)
+        if (distAxis[t] >= 3 && rnd() < 0.5) tree(R + 2, t)
+      }
     }
   }
 
@@ -849,10 +980,11 @@ export function buildCity(group, GRID, city) {
       if (isRoadCell(x, z) || isSideCell(x, z)) continue
       const k = x + ',' + z
       if (solids.has(k) || reserved.has(k)) continue
-      const facesStreet = distAxis[x] === 3 || distAxis[z] === 3
+      const facesStreet = rdAt(x, z) === 2
       const bi = Math.floor(x / STEP)
       const bj = Math.floor(z / STEP)
-      const type = blockType(bi, bj)
+      // in het Haarlemse centrum staat alles vol huizen (middeleeuws dicht)
+      const type = isHaarlem && x > 50 && x < 142 && z > 34 && z < 122 ? 'res' : blockType(bi, bj)
       const cx = bi * STEP + STEP / 2
       const cz = bj * STEP + STEP / 2
       const dd = (x + 0.5 - cx) * (x + 0.5 - cx) + (z + 0.5 - cz) * (z + 0.5 - cz)
@@ -897,14 +1029,28 @@ export function buildCity(group, GRID, city) {
   }
   const carColors = ['#e63946', '#3a6ff7', '#f4a93a', '#2a2f3a', '#ffffff', '#5cb85c', '#9b5de5', '#d23f8f']
   let ci = 0
-  for (let i = 0; i < ROADS.length; i += 2) {
-    const R = ROADS[i]
-    const c1 = makeCar(carColors[ci++ % carColors.length])
-    group.add(c1)
-    cars.push({ mesh: c1, axis: 'z', fixed: R + 0.5, pos: rnd() * GRID, dir: rnd() < 0.5 ? 1 : -1, speed: 3.0 })
-    const c2 = makeCar(carColors[ci++ % carColors.length])
-    group.add(c2)
-    cars.push({ mesh: c2, axis: 'x', fixed: R + 0.5, pos: rnd() * GRID, dir: rnd() < 0.5 ? 1 : -1, speed: 3.0 })
+  if (isHaarlem) {
+    // auto's volgen de echte straten (niet door de winkelstraat!)
+    for (const nm of ['Kruisweg', 'Dreef', 'Gedempte Oude Gracht', 'Gasthuisvest', 'Zijlstraat', 'Lange Herenvest']) {
+      const st = H_STREETS.find((s) => s.n === nm)
+      if (!st) continue
+      const lens = [0]
+      for (let i = 0; i < st.p.length - 1; i++)
+        lens.push(lens[i] + Math.hypot(st.p[i + 1][0] - st.p[i][0], st.p[i + 1][1] - st.p[i][1]))
+      const c1 = makeCar(carColors[ci++ % carColors.length])
+      group.add(c1)
+      cars.push({ mesh: c1, path: st.p, lens, total: lens[lens.length - 1], s: rnd() * lens[lens.length - 1], dir: rnd() < 0.5 ? 1 : -1, speed: 2.8 })
+    }
+  } else {
+    for (let i = 0; i < ROADS.length; i += 2) {
+      const R = ROADS[i]
+      const c1 = makeCar(carColors[ci++ % carColors.length])
+      group.add(c1)
+      cars.push({ mesh: c1, axis: 'z', fixed: R + 0.5, pos: rnd() * GRID, dir: rnd() < 0.5 ? 1 : -1, speed: 3.0 })
+      const c2 = makeCar(carColors[ci++ % carColors.length])
+      group.add(c2)
+      cars.push({ mesh: c2, axis: 'x', fixed: R + 0.5, pos: rnd() * GRID, dir: rnd() < 0.5 ? 1 : -1, speed: 3.0 })
+    }
   }
 
   // Statische blokken samenvoegen (snel op mobiel)
@@ -926,6 +1072,28 @@ export function buildCity(group, GRID, city) {
     update(dt) {
       for (const s of animated) s.rotation[s.userData.ax || 'x'] += dt * (s.userData.sp || 0.7)
       for (const car of cars) {
+        if (car.path) {
+          // auto volgt zijn straat (heen en weer)
+          car.s += car.dir * car.speed * dt
+          if (car.s > car.total) {
+            car.s = car.total
+            car.dir = -1
+          } else if (car.s < 0) {
+            car.s = 0
+            car.dir = 1
+          }
+          let si = 0
+          while (si < car.lens.length - 2 && car.lens[si + 1] < car.s) si++
+          const segLen = car.lens[si + 1] - car.lens[si] || 1
+          const tt = (car.s - car.lens[si]) / segLen
+          const ax = car.path[si][0]
+          const az = car.path[si][1]
+          const bx = car.path[si + 1][0]
+          const bz = car.path[si + 1][1]
+          car.mesh.position.set(ax + (bx - ax) * tt, 0, az + (bz - az) * tt)
+          car.mesh.rotation.y = Math.atan2((bx - ax) * car.dir, (bz - az) * car.dir)
+          continue
+        }
         car.pos += car.dir * car.speed * dt
         if (car.pos > GRID - 1) {
           car.pos = GRID - 1
@@ -1004,25 +1172,27 @@ export const CITIES = [
     key: 'haarlem',
     name: 'Haarlem',
     palette: HOUSE_NL,
-    start: START,
+    abs: true, // plekken staan op echte kaart-posities (160-rooster)
+    start: { x: 76.5, z: 67.5 }, // je begint op de Grote Markt
     landmarks: [
-      { name: 'Grote Kerk', type: 'church', x: 19.5, z: 19.5, opts: { tower: 7, spire: '#3f7d6e' }, labelY: 11.5, labelScale: 1.2, fact: 'De Grote Kerk staat op de Grote Markt en heeft een wereldberoemd orgel. Mozart speelde erop toen hij nog maar 10 jaar oud was!' },
-      { name: 'Stadhuis', type: 'palace', x: 16.8, z: 19.5, opts: { w: 5, color: '#b89a6a', cupola: true }, labelY: 6.2, fact: 'Het Stadhuis van Haarlem staat aan de Grote Markt, recht tegenover de Grote Kerk.' },
-      { name: 'Vleeshal', type: 'museum', x: 18.6, z: 22.2, opts: { color: '#7a8088', spire: '#5a6470' }, labelY: 6.0, fact: 'De Vleeshal op de Grote Markt is meer dan 400 jaar oud. Vroeger werd er vlees verkocht, nu is het een museum.' },
-      { name: 'Grote Markt', type: 'square', x: 18.4, z: 19.8, labelY: 3.2, fact: 'Op de Grote Markt is vaak markt. Hier staat ook het standbeeld van Laurens Janszoon Coster.' },
-      { name: 'Het Spaarne', type: 'label', x: 28, z: 24, labelY: 1.8, fact: 'Het Spaarne is de rivier van Haarlem. Hij slingert dwars door de stad, met bruggen eroverheen.' },
-      { name: 'Gravestenenbrug', type: 'label', x: 28.3, z: 17.5, labelY: 5.5, fact: 'De Gravestenenbrug is de witte ophaalbrug over het Spaarne. Hij gaat open als er een bootje aankomt!' },
-      { name: 'Teylers Museum', type: 'museum', x: 27, z: 16.6, opts: { color: '#cdbb94', spire: '#3f5e7d' }, labelY: 6.0, fact: 'Het Teylers Museum aan het Spaarne is het oudste museum van Nederland, vol fossielen en uitvindingen.' },
-      { name: 'Bakenesserkerk', type: 'tower', x: 24, z: 16, opts: { h: 9, spire: '#f4f6f8' }, labelY: 12.5, fact: 'De witte toren van de Bakenesserkerk zie je overal boven de daken van Haarlem uitsteken.' },
-      { name: 'Molen De Adriaan', type: 'windmill', x: 30.8, z: 9, labelY: 7.2, fact: 'Molen De Adriaan staat op de oever van het Spaarne. Vroeger werd er onder andere tabak en verf gemaakt.' },
-      { name: 'Amsterdamse Poort', type: 'gate', x: 26, z: 13, labelY: 6.4, fact: 'De Amsterdamse Poort is meer dan 600 jaar oud. Hij staat vlak bij het Spaarne, net als in het echt.' },
-      { name: 'Lange Herenvest 16', type: 'home', x: 27.5, z: 14.5, labelY: 5.0, labelScale: 1.2, fact: 'Dit is jullie huis aan de Lange Herenvest, vlak bij de Amsterdamse Poort en het Spaarne. Zwaai maar naar de buren!' },
-      { name: 'Station Haarlem', type: 'station', x: 19.5, z: 6, labelY: 5.6, fact: 'Vanaf Haarlem reed in 1839 de allereerste trein van Nederland!' },
-      { name: 'Veronicaschool', type: 'school', x: 23.4, z: 26.6, labelY: 5.8, labelScale: 1.3, fact: 'Dit is jouw school aan de Antoniestraat, midden in Haarlem! Het is een Jenaplanschool: binnen zitten ze in de kring. Je kunt naar binnen lopen!' },
-      { name: 'Frans Hals Museum', type: 'museum', x: 16.6, z: 26.2, opts: { color: '#8a4632' }, labelY: 6.0, fact: 'In het Frans Hals Museum hangen schilderijen van Frans Hals, de beroemdste schilder van Haarlem.' },
-      { name: 'Nieuwe Gracht', type: 'label', x: 18, z: 14.4, labelY: 1.8, fact: 'De Nieuwe Gracht hoort bij de singels: het water dat als een ring om het centrum van Haarlem ligt. Jullie huis staat aan zo’n vest!' },
-      { name: 'Grote Houtstraat', type: 'label', x: 21, z: 27, labelY: 3.2, fact: 'De Grote Houtstraat is de gezelligste winkelstraat van Haarlem. Auto’s mogen er niet rijden.' },
-      { name: 'Haarlemmerhout', type: 'label', x: 13, z: 36.5, labelY: 3.0, fact: 'De Haarlemmerhout is het oudste stadsbos van Nederland. Lekker rennen en verstoppen tussen de bomen!' },
+      { name: 'Grote Kerk', type: 'church', x: 81, z: 66, opts: { tower: 7, spire: '#3f7d6e' }, labelY: 11.5, labelScale: 1.2, fact: 'De Grote Kerk staat op de Grote Markt en heeft een wereldberoemd orgel. Mozart speelde erop toen hij nog maar 10 jaar oud was!' },
+      { name: 'Stadhuis', type: 'palace', x: 70, z: 66, opts: { w: 5, color: '#b89a6a', cupola: true }, labelY: 6.2, fact: 'Het Stadhuis van Haarlem staat aan de Grote Markt, recht tegenover de Grote Kerk.' },
+      { name: 'Vleeshal', type: 'museum', x: 84, z: 63, opts: { color: '#7a8088', spire: '#5a6470' }, labelY: 6.0, fact: 'De Vleeshal bij de Grote Markt is meer dan 400 jaar oud. Vroeger werd er vlees verkocht, nu is het een museum.' },
+      { name: 'Grote Markt', type: 'square', x: 74, z: 65, labelY: 3.2, fact: 'Op de Grote Markt is vaak markt. Hier staat ook het standbeeld van Laurens Janszoon Coster.' },
+      { name: 'Het Spaarne', type: 'label', x: 105, z: 106, labelY: 1.8, fact: 'Het Spaarne is de rivier van Haarlem. Hij maakt een echte S-bocht om de Burgwal heen, net als op de kaart.' },
+      { name: 'Gravestenenbrug', type: 'label', x: 117, z: 67, labelY: 5.5, fact: 'De Gravestenenbrug is de witte ophaalbrug over het Spaarne, aan het einde van de Damstraat. Hij gaat open als er een bootje aankomt!' },
+      { name: 'Teylers Museum', type: 'museum', x: 108, z: 62, opts: { color: '#cdbb94', spire: '#3f5e7d' }, labelY: 6.0, fact: 'Het Teylers Museum aan het Spaarne is het oudste museum van Nederland, vol fossielen en uitvindingen.' },
+      { name: 'Bakenesserkerk', type: 'tower', x: 92, z: 56, opts: { h: 9, spire: '#f4f6f8' }, labelY: 12.5, fact: 'De witte toren van de Bakenesserkerk staat in het Bakenes-buurtje, tussen de Markt en het Spaarne.' },
+      { name: 'Molen De Adriaan', type: 'windmill', x: 121, z: 28, labelY: 7.2, fact: 'Molen De Adriaan staat op de oostoever van het Spaarne. Vroeger werd er onder andere tabak en verf gemaakt.' },
+      { name: 'Amsterdamse Poort', type: 'gate', x: 139, z: 74, labelY: 6.4, fact: 'De Amsterdamse Poort staat aan het einde van de Spaarnwouderstraat, aan de oostrand van de stad. Erachter ligt de Herensingel.' },
+      { name: 'Lange Herenvest 16', type: 'home', x: 133, z: 84, labelY: 5.0, labelScale: 1.2, fact: 'Dit is jullie huis aan de Lange Herenvest, in de Burgwal-buurt ten oosten van het Spaarne, vlak bij de Amsterdamse Poort!' },
+      { name: 'Station Haarlem', type: 'station', x: 74, z: 8, labelY: 5.6, fact: 'Vanaf Haarlem reed in 1839 de allereerste trein van Nederland! De Kruisweg loopt recht naar het station.' },
+      { name: 'Veronicaschool', type: 'school', x: 87, z: 98.2, labelY: 5.8, labelScale: 1.3, fact: 'Dit is jouw school aan de Antoniestraat, midden in Haarlem! Het is een Jenaplanschool: binnen zitten ze in de kring. Je kunt naar binnen lopen!' },
+      { name: 'Frans Hals Museum', type: 'museum', x: 68, z: 99, opts: { color: '#8a4632' }, labelY: 6.0, fact: 'In het Frans Hals Museum aan het Groot Heiligland hangen schilderijen van Frans Hals, de beroemdste schilder van Haarlem.' },
+      { name: 'Nieuwe Gracht', type: 'label', x: 80, z: 43.5, labelY: 1.8, fact: 'De Nieuwe Gracht is een kaarsrechte gracht aan de noordkant van het centrum, dwars naar het Spaarne.' },
+      { name: 'Grote Houtstraat', type: 'label', x: 74.5, z: 88, labelY: 3.2, fact: 'De Grote Houtstraat is de gezelligste winkelstraat van Haarlem. Auto’s mogen er niet rijden.' },
+      { name: 'De Burgwal', type: 'label', x: 128, z: 92, labelY: 2.2, fact: 'De Burgwal is jullie buurt: het stukje stad tussen het Spaarne en de vesten. Hier staat ook jullie huis!' },
+      { name: 'Haarlemmerhout', type: 'label', x: 72, z: 138, labelY: 3.0, fact: 'De Haarlemmerhout is het oudste stadsbos van Nederland, aan het einde van de Dreef. Lekker rennen en verstoppen!' },
     ],
   },
   {
