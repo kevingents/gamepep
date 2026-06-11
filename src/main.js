@@ -14,15 +14,15 @@ import { joinRoom, leaveRoom, sendState, sendFx, sendTag, makeCode, inRoom } fro
 //  Veronicaschool.
 // =====================================================================
 
-const GRID = 40
+const GRID = 30
 const MAX_HEARTS = 3
-const STEVE_SPEED = 5.4
+const STEVE_SPEED = 5.0
 const TURN_SPEED = 2.4
-const CREEPER_SPEED = 1.9
+const CREEPER_SPEED = 1.8
 const BASE_DIAMONDS = 6
 const BASE_CREEPERS = 2
 const BASE_KIDS = 4
-const START = { x: 21.5, z: 24.5 } // op de straat naast de Grote Markt
+const START = { x: 15.5, z: 20.5 } // op de straat richting het centrum
 const START_YAW = 0 // kijk naar het noorden, de stad in
 const TAG_TIME = 60
 const HIDE_TIME = 90
@@ -106,7 +106,7 @@ function pillarGeo(w, h, d) {
 // ---------- Three.js basis ----------
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(0x9fd6ff)
-scene.fog = new THREE.Fog(0x9fd6ff, 30, 80)
+scene.fog = new THREE.Fog(0x9fd6ff, GRID, GRID * 2.6)
 
 const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200)
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
@@ -398,10 +398,14 @@ let touchTurn = 0 // -1..1 sturen door te schuiven
 let touchId = null
 let touchStartX = 0
 function moveSteve(dx, dz) {
+  // de speler heeft een "dikte" (R) zodat je niet in muren/bomen clipt
+  const R = 0.34
   const nx = clamp(steveX + dx, 0.6, GRID - 0.6)
-  if (!cellSolid(nx, steveZ)) steveX = nx
+  const ex = nx + (dx > 0 ? R : dx < 0 ? -R : 0)
+  if (!cellSolid(ex, steveZ) && !cellSolid(ex, steveZ + R) && !cellSolid(ex, steveZ - R)) steveX = nx
   const nz = clamp(steveZ + dz, 0.6, GRID - 0.6)
-  if (!cellSolid(steveX, nz)) steveZ = nz
+  const ez = nz + (dz > 0 ? R : dz < 0 ? -R : 0)
+  if (!cellSolid(steveX, ez) && !cellSolid(steveX + R, ez) && !cellSolid(steveX - R, ez)) steveZ = nz
 }
 function updatePlayer(dt) {
   // Sturen: toetsenbord (desktop) of touch (vasthouden + schuiven).

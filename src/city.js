@@ -7,9 +7,9 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 const matCache = {}
 const matOf = (c) => (matCache[c] || (matCache[c] = new THREE.MeshLambertMaterial({ color: c })))
 
-const ROADS = [7, 14, 21, 28, 35]
+const ROADS = [7, 15, 23]
 const onRoad = (v) => ROADS.indexOf(v) !== -1
-const START = { x: 21.5, z: 24.5 } // op straat, vrij van gebouwen, voor elke stad
+const START = { x: 15.5, z: 20.5 } // op straat, vrij van gebouwen, voor elke stad
 
 function makeLabel(text, scale = 1) {
   const fs = 34
@@ -342,7 +342,8 @@ export function buildCity(group, GRID, city) {
     if (x < 1 || z < 1 || x >= GRID - 1 || z >= GRID - 1) return
     const k = x + ',' + z
     if (solids.has(k) || reserved.has(k)) return
-    if (rnd() < 0.45) return
+    if (rnd() < 0.5) return
+    solids.add(k) // je kunt niet door bomen heen
     box('#7a5230', 0.3, 1.0, 0.3, x + 0.5, 0, z + 0.5)
     box('#4f9e35', 1.0, 1.1, 1.0, x + 0.5, 1.0, z + 0.5)
   }
@@ -427,14 +428,14 @@ export const CITIES = [
     name: 'Haarlem',
     palette: HOUSE_NL,
     start: START,
-    waters: [{ x: 36, z: 0, w: 4, d: 40 }],
+    waters: [{ x: 27, z: 0, w: 3, d: 30 }],
     landmarks: [
-      { name: 'Grote Kerk', type: 'church', x: 19.5, z: 19.5, opts: { tower: 7, spire: '#3f7d6e' }, labelY: 11.5, labelScale: 1.2, fact: 'De Grote Kerk staat op de Grote Markt en heeft een wereldberoemd orgel. Mozart speelde erop toen hij nog maar 10 jaar oud was!' },
-      { name: 'Molen De Adriaan', type: 'windmill', x: 33, z: 9, labelY: 7.2, fact: 'Molen De Adriaan staat aan het Spaarne. Vroeger werd er onder andere tabak en verf gemaakt.' },
-      { name: 'Amsterdamse Poort', type: 'gate', x: 6.5, z: 12, labelY: 6.4, fact: 'De Amsterdamse Poort is meer dan 600 jaar oud. Vroeger ging je hier de stad Haarlem binnen.' },
-      { name: 'Station Haarlem', type: 'station', x: 19.5, z: 6, labelY: 5.6, fact: 'Vanaf Haarlem reed in 1839 de allereerste trein van Nederland!' },
-      { name: 'Veronicaschool', type: 'school', x: 9, z: 31, labelY: 5.8, labelScale: 1.3, fact: 'Dit is jouw school! Hier leer je lezen, rekenen en spelen met al je vriendjes.' },
-      { name: 'Grote Markt', type: 'square', x: 30, z: 30, labelY: 3.2, fact: 'Op de Grote Markt is vaak markt. Hier staat ook het standbeeld van Laurens Janszoon Coster.' },
+      { name: 'Grote Kerk', type: 'church', x: 15, z: 15, opts: { tower: 7, spire: '#3f7d6e' }, labelY: 11.5, labelScale: 1.2, fact: 'De Grote Kerk staat op de Grote Markt en heeft een wereldberoemd orgel. Mozart speelde erop toen hij nog maar 10 jaar oud was!' },
+      { name: 'Molen De Adriaan', type: 'windmill', x: 25, z: 8, labelY: 7.2, fact: 'Molen De Adriaan staat aan het Spaarne. Vroeger werd er onder andere tabak en verf gemaakt.' },
+      { name: 'Amsterdamse Poort', type: 'gate', x: 5, z: 11, labelY: 6.4, fact: 'De Amsterdamse Poort is meer dan 600 jaar oud. Vroeger ging je hier de stad Haarlem binnen.' },
+      { name: 'Station Haarlem', type: 'station', x: 15, z: 5, labelY: 5.6, fact: 'Vanaf Haarlem reed in 1839 de allereerste trein van Nederland!' },
+      { name: 'Veronicaschool', type: 'school', x: 7, z: 24, labelY: 5.8, labelScale: 1.3, fact: 'Dit is jouw school! Hier leer je lezen, rekenen en spelen met al je vriendjes.' },
+      { name: 'Grote Markt', type: 'square', x: 23, z: 24, labelY: 3.2, fact: 'Op de Grote Markt is vaak markt. Hier staat ook het standbeeld van Laurens Janszoon Coster.' },
     ],
   },
   {
@@ -442,13 +443,13 @@ export const CITIES = [
     name: 'Uithoorn',
     palette: HOUSE_NL,
     start: START,
-    waters: [{ x: 0, z: 36, w: 40, d: 4 }],
+    waters: [{ x: 0, z: 27, w: 30, d: 3 }],
     landmarks: [
-      { name: 'Thamerkerk', type: 'church', x: 19.5, z: 30, opts: { tower: 6, spire: '#7a3f24' }, labelY: 10.5, fact: 'De Thamerkerk is een oud kerkje aan de Amstel. Het staat er al honderden jaren.' },
-      { name: 'De Amstel', type: 'label', x: 28, z: 33, labelY: 1.6, fact: 'De Amstel is de rivier die van Uithoorn helemaal naar Amsterdam stroomt.' },
-      { name: 'Bloemenkas', type: 'greenhouse', x: 9, z: 12, labelY: 3.0, fact: 'Rond Uithoorn staan veel kassen. Daar groeien bloemen die over de hele wereld worden verkocht.' },
-      { name: 'De Schans', type: 'square', x: 30, z: 12, labelY: 3.2, fact: 'De Schans is het oude hart van Uithoorn, vroeger met een gracht eromheen.' },
-      { name: 'Station', type: 'station', x: 19.5, z: 6, labelY: 5.6, fact: 'Vroeger reed er een stoomtreintje door Uithoorn: de "Bello"!' },
+      { name: 'Thamerkerk', type: 'church', x: 15, z: 22, opts: { tower: 6, spire: '#7a3f24' }, labelY: 10.5, fact: 'De Thamerkerk is een oud kerkje aan de Amstel. Het staat er al honderden jaren.' },
+      { name: 'De Amstel', type: 'label', x: 22, z: 24, labelY: 1.6, fact: 'De Amstel is de rivier die van Uithoorn helemaal naar Amsterdam stroomt.' },
+      { name: 'Bloemenkas', type: 'greenhouse', x: 6, z: 8, labelY: 3.0, fact: 'Rond Uithoorn staan veel kassen. Daar groeien bloemen die over de hele wereld worden verkocht.' },
+      { name: 'De Schans', type: 'square', x: 24, z: 8, labelY: 3.2, fact: 'De Schans is het oude hart van Uithoorn, vroeger met een gracht eromheen.' },
+      { name: 'Station', type: 'station', x: 15, z: 5, labelY: 5.6, fact: 'Vroeger reed er een stoomtreintje door Uithoorn: de "Bello"!' },
     ],
   },
   {
@@ -456,13 +457,13 @@ export const CITIES = [
     name: 'Amsterdam',
     palette: ['#7a4a32', '#8a5a3a', '#6a4028', '#9a6a44', '#5a3a26', '#a87a52'],
     start: START,
-    waters: [{ x: 36, z: 0, w: 4, d: 40 }],
+    waters: [{ x: 27, z: 0, w: 3, d: 30 }],
     landmarks: [
-      { name: 'Koninklijk Paleis', type: 'palace', x: 19.5, z: 19.5, opts: { w: 6, color: '#cdbb94', cupola: true }, labelY: 6.0, fact: 'Op de Dam staat het Koninklijk Paleis. Soms werkt of woont de koning hier.' },
-      { name: 'Rijksmuseum', type: 'museum', x: 19.5, z: 31, opts: { color: '#b06a3a' }, labelY: 6.0, fact: 'In het Rijksmuseum hangt het beroemde schilderij De Nachtwacht van Rembrandt.' },
-      { name: 'Centraal Station', type: 'station', x: 19.5, z: 6, labelY: 5.6, fact: 'Amsterdam Centraal is een groot, prachtig station waar heel veel treinen komen.' },
-      { name: 'Westertoren', type: 'tower', x: 6.5, z: 19.5, opts: { h: 11, spire: '#2f6fae' }, labelY: 14.5, fact: 'De Westertoren is de hoogste kerktoren van Amsterdam, met een blauwe kroon bovenop.' },
-      { name: 'Grachten', type: 'canal', x: 30, z: 24, labelY: 2.0, fact: 'Amsterdam heeft honderden grachten met bruggen. Je kunt er met een bootje doorheen varen.' },
+      { name: 'Koninklijk Paleis', type: 'palace', x: 15, z: 15, opts: { w: 6, color: '#cdbb94', cupola: true }, labelY: 6.0, fact: 'Op de Dam staat het Koninklijk Paleis. Soms werkt of woont de koning hier.' },
+      { name: 'Rijksmuseum', type: 'museum', x: 15, z: 24, opts: { color: '#b06a3a' }, labelY: 6.0, fact: 'In het Rijksmuseum hangt het beroemde schilderij De Nachtwacht van Rembrandt.' },
+      { name: 'Centraal Station', type: 'station', x: 15, z: 5, labelY: 5.6, fact: 'Amsterdam Centraal is een groot, prachtig station waar heel veel treinen komen.' },
+      { name: 'Westertoren', type: 'tower', x: 5, z: 15, opts: { h: 11, spire: '#2f6fae' }, labelY: 14.5, fact: 'De Westertoren is de hoogste kerktoren van Amsterdam, met een blauwe kroon bovenop.' },
+      { name: 'Grachten', type: 'canal', x: 24, z: 18, labelY: 2.0, fact: 'Amsterdam heeft honderden grachten met bruggen. Je kunt er met een bootje doorheen varen.' },
     ],
   },
   {
@@ -470,13 +471,13 @@ export const CITIES = [
     name: 'Rotterdam',
     palette: ['#8a9098', '#9aa0a8', '#7a8088', '#aab0b8', '#6a7078', '#b8bec6'],
     start: START,
-    waters: [{ x: 0, z: 36, w: 40, d: 4 }],
+    waters: [{ x: 0, z: 27, w: 30, d: 3 }],
     landmarks: [
-      { name: 'Erasmusbrug', type: 'bridge', x: 19.5, z: 33, labelY: 8.5, fact: 'De Erasmusbrug heet ook "De Zwaan", omdat hij op een witte zwaan lijkt.' },
-      { name: 'Euromast', type: 'tower', x: 6.5, z: 19.5, opts: { h: 13, style: 'modern' }, labelY: 16.0, fact: 'De Euromast is een hoge toren. Vanaf boven zie je de hele stad en de grote haven.' },
-      { name: 'Markthal', type: 'archhall', x: 31, z: 19.5, labelY: 7.0, fact: 'De Markthal is een grote hal vol eten, met een reuzenschildering van fruit op het plafond.' },
-      { name: 'Kubuswoningen', type: 'cubes', x: 19.5, z: 12, opts: { color: '#e8c54a' }, labelY: 5.5, fact: 'De kubuswoningen zijn huizen die schuin op hun punt staan, net dobbelstenen.' },
-      { name: 'Het Witte Huis', type: 'tower', x: 31, z: 30, opts: { h: 9, spire: '#eeeeee' }, labelY: 12.5, fact: 'Het Witte Huis in Rotterdam was lang geleden het hoogste kantoor van heel Europa.' },
+      { name: 'Erasmusbrug', type: 'bridge', x: 15, z: 24, labelY: 8.5, fact: 'De Erasmusbrug heet ook "De Zwaan", omdat hij op een witte zwaan lijkt.' },
+      { name: 'Euromast', type: 'tower', x: 5, z: 15, opts: { h: 13, style: 'modern' }, labelY: 16.0, fact: 'De Euromast is een hoge toren. Vanaf boven zie je de hele stad en de grote haven.' },
+      { name: 'Markthal', type: 'archhall', x: 25, z: 15, labelY: 7.0, fact: 'De Markthal is een grote hal vol eten, met een reuzenschildering van fruit op het plafond.' },
+      { name: 'Kubuswoningen', type: 'cubes', x: 15, z: 8, opts: { color: '#e8c54a' }, labelY: 5.5, fact: 'De kubuswoningen zijn huizen die schuin op hun punt staan, net dobbelstenen.' },
+      { name: 'Het Witte Huis', type: 'tower', x: 24, z: 24, opts: { h: 9, spire: '#eeeeee' }, labelY: 12.5, fact: 'Het Witte Huis in Rotterdam was lang geleden het hoogste kantoor van heel Europa.' },
     ],
   },
   {
@@ -484,12 +485,12 @@ export const CITIES = [
     name: 'Utrecht',
     palette: HOUSE_NL,
     start: START,
-    waters: [{ x: 36, z: 0, w: 4, d: 40 }],
+    waters: [{ x: 27, z: 0, w: 3, d: 30 }],
     landmarks: [
-      { name: 'Domtoren', type: 'tower', x: 19.5, z: 19.5, opts: { h: 15, spire: '#7a6a55' }, labelY: 19.0, labelScale: 1.2, fact: 'De Domtoren is de hoogste kerktoren van Nederland: meer dan 112 meter hoog!' },
-      { name: 'Nijntje Museum', type: 'museum', x: 9, z: 31, opts: { color: '#ff8c42', spire: '#e63946' }, labelY: 6.0, fact: 'In Utrecht is een museum over Nijntje, het tekenkonijntje van Dick Bruna.' },
-      { name: 'Centraal Station', type: 'station', x: 19.5, z: 6, labelY: 5.6, fact: 'Utrecht Centraal is het drukste treinstation van Nederland, midden in het land.' },
-      { name: 'De Werven', type: 'canal', x: 30, z: 24, labelY: 2.0, fact: 'De grachten van Utrecht hebben werven: lage kades bij het water met oude kelders.' },
+      { name: 'Domtoren', type: 'tower', x: 15, z: 15, opts: { h: 15, spire: '#7a6a55' }, labelY: 19.0, labelScale: 1.2, fact: 'De Domtoren is de hoogste kerktoren van Nederland: meer dan 112 meter hoog!' },
+      { name: 'Nijntje Museum', type: 'museum', x: 7, z: 24, opts: { color: '#ff8c42', spire: '#e63946' }, labelY: 6.0, fact: 'In Utrecht is een museum over Nijntje, het tekenkonijntje van Dick Bruna.' },
+      { name: 'Centraal Station', type: 'station', x: 15, z: 5, labelY: 5.6, fact: 'Utrecht Centraal is het drukste treinstation van Nederland, midden in het land.' },
+      { name: 'De Werven', type: 'canal', x: 24, z: 18, labelY: 2.0, fact: 'De grachten van Utrecht hebben werven: lage kades bij het water met oude kelders.' },
     ],
   },
   {
@@ -499,10 +500,10 @@ export const CITIES = [
     start: START,
     waters: [],
     landmarks: [
-      { name: 'Binnenhof', type: 'palace', x: 19.5, z: 19.5, opts: { w: 6, color: '#b89a6a', towers: true }, labelY: 6.2, fact: 'In het Binnenhof maken de regering en de Tweede Kamer de regels voor heel Nederland.' },
-      { name: 'Vredespaleis', type: 'palace', x: 9, z: 12, opts: { w: 5, color: '#a8552e', cupola: true, spire: '#7a3f24' }, labelY: 6.2, fact: 'In het Vredespaleis praten landen met elkaar om ruzie en oorlog te voorkomen.' },
-      { name: 'Madurodam', type: 'miniature', x: 30, z: 12, labelY: 3.0, fact: 'Madurodam is een minipark met heel Nederland in het klein, waar je doorheen kunt lopen.' },
-      { name: 'Scheveningen', type: 'beach', x: 19.5, z: 31, labelY: 3.5, fact: 'Scheveningen is het strand van Den Haag, met een lange pier en de zee.' },
+      { name: 'Binnenhof', type: 'palace', x: 15, z: 15, opts: { w: 6, color: '#b89a6a', towers: true }, labelY: 6.2, fact: 'In het Binnenhof maken de regering en de Tweede Kamer de regels voor heel Nederland.' },
+      { name: 'Vredespaleis', type: 'palace', x: 6, z: 8, opts: { w: 5, color: '#a8552e', cupola: true, spire: '#7a3f24' }, labelY: 6.2, fact: 'In het Vredespaleis praten landen met elkaar om ruzie en oorlog te voorkomen.' },
+      { name: 'Madurodam', type: 'miniature', x: 24, z: 8, labelY: 3.0, fact: 'Madurodam is een minipark met heel Nederland in het klein, waar je doorheen kunt lopen.' },
+      { name: 'Scheveningen', type: 'beach', x: 15, z: 24, labelY: 3.5, fact: 'Scheveningen is het strand van Den Haag, met een lange pier en de zee.' },
     ],
   },
 ]
