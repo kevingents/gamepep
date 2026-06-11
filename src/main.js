@@ -183,19 +183,20 @@ const cityKey = () => CITIES[cityIndex].key
 
 // instellingen (lichte modus, muziek, geluid)
 let lichtMode = false
-let musicOn = true
+let musicMode = 1 // 0 = uit, 1 = vrolijk, 2 = feestje
 let footTimer = 0
 function loadSettings() {
   try {
     lichtMode = localStorage.getItem('haarlem_licht') === '1'
-    musicOn = localStorage.getItem('haarlem_muziek') !== '0'
+    const m = localStorage.getItem('haarlem_muziek')
+    musicMode = m === null ? 1 : Math.max(0, Math.min(2, parseInt(m, 10) || 0))
     sfx.enabled = localStorage.getItem('haarlem_geluid') !== '0'
   } catch (e) {}
 }
 function saveSettings() {
   try {
     localStorage.setItem('haarlem_licht', lichtMode ? '1' : '0')
-    localStorage.setItem('haarlem_muziek', musicOn ? '1' : '0')
+    localStorage.setItem('haarlem_muziek', String(musicMode))
     localStorage.setItem('haarlem_geluid', sfx.enabled ? '1' : '0')
   } catch (e) {}
 }
@@ -206,7 +207,7 @@ function applyQuality() {
   resize()
 }
 function startMusicMaybe() {
-  if (musicOn && sfx.enabled) sfx.musicStart()
+  if (musicMode > 0 && sfx.enabled) sfx.musicStart(musicMode === 2 ? 'feest' : 'vrolijk')
 }
 function buildCurrentCity() {
   for (const child of [...worldGroup.children]) {
@@ -266,6 +267,12 @@ let invuln = 0
 let pendingScore = 0
 let mode = 'diamond' // 'diamond' | 'tag' | 'hide' | 'mp'
 let tagLimit = TAG_TIME // gekozen tikkertje-tijd (0 = zonder tijd)
+// echt tikkertje: rollen wisselen - tik jij iemand, dan is dat kind 'm en jaagt op jou
+let itIsPlayer = true
+let myTags = 0
+let kidTags = 0
+let targetTags = 5
+let spTagCool = 0
 let diamonds = []
 let creepers = []
 let npcs = []
@@ -443,14 +450,31 @@ function buildRound() {
   } else {
     totalKids = BASE_KIDS + (round - 1)
     for (let i = 0; i < totalKids; i++) {
-      const c = mode === 'hide' ? hiddenCell(taken) : freeCell(taken)
+      let c = null
+      if (mode === 'hide') {
+        // verstoppers zitten ver weg, dus je moet echt zoeken
+        for (let t = 0; t < 25; t++) {
+          c = hiddenCell(taken)
+          if (!c) break
+          const hdx = c.x - START.x
+          const hdz = c.z - START.z
+          if (hdx * hdx + hdz * hdz > GRID * 0.15 * (GRID * 0.15)) break
+        }
+      } else c = freeCell(taken)
       if (!c) continue
       const m = makeCharacter(randomCfg())
       m.position.set(c.x, 0, c.z)
       roundGroup.add(m)
-      npcs.push({ mesh: m, x: c.x, z: c.z, heading: Math.random() * 6.28, timer: 0, phase: 0, caught: false })
+      npcs.push({ mesh: m, x: c.x, z: c.z, heading: Math.random() * 6.28, timer: 0, phase: 0, caught: false, it: false })
     }
     timeLeft = mode === 'tag' ? tagLimit : Math.max(50, HIDE_TIME - 8 * (round - 1))
+    if (mode === 'tag') {
+      itIsPlayer = true
+      myTags = 0
+      kidTags = 0
+      targetTags = 4 + round
+      spTagCool = 0
+    }
   }
   for (let i = 0; i < 6; i++) spawnPowerup(taken)
   spawnSecrets(taken)
@@ -554,7 +578,13 @@ function updateNPCs(dt) {
       const dz = n.z - steveZ
       const dist = Math.hypot(dx, dz)
       let mvx, mvz
-      if (dist < 6 && dist > 0.001) {
+      let speedF = Math.min(0.95, 0.6 + 0.05 * (round - 1)) // elke ronde snellere kinderen
+      if (n.it) {
+        // dit kind is 'm en zit JOU achterna!
+        speedF = Math.min(0.92, 0.66 + 0.04 * (round - 1))
+        mvx = -dx / (dist || 1)
+        mvz = -dz / (dist || 1)
+      } else if (itIsPlayer && dist < 6 && dist > 0.001) {
         mvx = dx / dist
         mvz = dz / dist // wegrennen van de speler
       } else {
@@ -566,7 +596,7 @@ function updateNPCs(dt) {
         mvx = Math.cos(n.heading)
         mvz = Math.sin(n.heading)
       }
-      const sp = STEVE_SPEED * Math.min(0.95, 0.6 + 0.05 * (round - 1)) * dt // elke ronde snellere kinderen
+      const sp = STEVE_SPEED * speedF * dt
       const nx = clamp(n.x + mvx * sp, 0.6, GRID - 0.6)
       if (!cellSolid(nx, n.z)) n.x = nx
       const nz = clamp(n.z + mvz * sp, 0.6, GRID - 0.6)
@@ -626,7 +656,47 @@ function checkCollisions() {
         }
       }
     }
+  } else if (mode === 'tag') {
+    // echt tikkertje: rollen wisselen
+    if (spTagCool <= 0) {
+      if (itIsPlayer) {
+        for (const n of npcs) {
+          const dx = n.x - steveX
+          const dz = n.z - steveZ
+          if (dx * dx + dz * dz < 0.7 * 0.7) {
+            myTags += 1
+            score += 150
+            sfx.coin()
+            n.it = true
+            itIsPlayer = false
+            spTagCool = 1.5
+            showToast('Getikt! Nu is het kind hem - ren weg!')
+            updateHud()
+            if (myTags >= targetTags) roundClear()
+            break
+          }
+        }
+      } else {
+        const it = npcs.find((n) => n.it)
+        if (it) {
+          const dx = it.x - steveX
+          const dz = it.z - steveZ
+          if (dx * dx + dz * dz < 0.7 * 0.7) {
+            kidTags += 1
+            score = Math.max(0, score - 100)
+            sfx.bonk()
+            showHitFlash()
+            it.it = false
+            itIsPlayer = true
+            spTagCool = 1.5
+            showToast('Je bent getikt! Nu ben jij hem')
+            updateHud()
+          }
+        }
+      }
+    }
   } else {
+    // verstoppertje: gevonden kinderen tellen mee
     for (const n of npcs) {
       if (n.caught) continue
       const dx = n.x - steveX
@@ -634,9 +704,9 @@ function checkCollisions() {
       if (dx * dx + dz * dz < 0.7 * 0.7) {
         n.caught = true
         n.mesh.visible = false
-        score += mode === 'tag' ? 150 : 200
+        score += 200
         sfx.coin()
-        showToast(mode === 'tag' ? 'Getikt!' : 'Gevonden!')
+        showToast('Gevonden!')
         updateHud()
         if (npcs.every((q) => q.caught)) {
           roundClear()
@@ -995,7 +1065,7 @@ function showSettings() {
 }
 function updateSettingsUI() {
   $('btnToggleLight').textContent = 'Lichte modus: ' + (lichtMode ? 'AAN' : 'UIT')
-  $('btnToggleMusic').textContent = 'Muziek: ' + (musicOn ? 'AAN' : 'UIT')
+  $('btnToggleMusic').textContent = 'Muziek: ' + ['UIT', 'VROLIJK', 'FEESTJE'][musicMode]
   $('btnToggleSound').textContent = 'Geluid: ' + (sfx.enabled ? 'AAN' : 'UIT')
 }
 function hit() {
@@ -1071,6 +1141,9 @@ function updateHud() {
     hud.hearts.innerHTML = h
     const got = diamonds.filter((d) => d.collected).length
     hud.diamonds.innerHTML = diamondIcon + '<span>' + got + '/' + totalDiamonds + '</span>'
+  } else if (mode === 'tag') {
+    hud.diamonds.innerHTML = kidIcon + '<span>' + myTags + '/' + targetTags + '</span>'
+    if (timed) hud.timer.textContent = fmtTime(timeLeft)
   } else {
     const got = npcs.filter((n) => n.caught).length
     hud.diamonds.innerHTML = kidIcon + '<span>' + got + '/' + totalKids + '</span>'
@@ -1186,6 +1259,7 @@ function startGame(m, tagSeconds) {
   }
   soundCool = 0
   radarBeacon.visible = false
+  itMarker.visible = false
   setCharacter(playerCfg)
   buildRound()
   maybeHint()
@@ -1390,7 +1464,7 @@ muteBtn.addEventListener('click', () => {
     sfx.musicStop()
     sfx.rainStop()
   } else {
-    if (musicOn && status === 'playing') sfx.musicStart()
+    if (status === 'playing') startMusicMaybe()
     if (isRaining) sfx.rainStart()
   }
   updateMuteBtn()
@@ -1509,9 +1583,9 @@ $('btnToggleLight').addEventListener('click', () => {
   updateSettingsUI()
 })
 $('btnToggleMusic').addEventListener('click', () => {
-  musicOn = !musicOn
-  if (!musicOn) sfx.musicStop()
-  else if (sfx.enabled && status === 'playing') sfx.musicStart()
+  musicMode = (musicMode + 1) % 3 // uit -> vrolijk -> feestje
+  sfx.musicStop()
+  if (status === 'playing') startMusicMaybe()
   saveSettings()
   updateSettingsUI()
 })
@@ -1521,7 +1595,7 @@ $('btnToggleSound').addEventListener('click', () => {
     sfx.musicStop()
     sfx.rainStop()
   } else {
-    if (musicOn && status === 'playing') sfx.musicStart()
+    if (status === 'playing') startMusicMaybe()
     if (isRaining) sfx.rainStart()
   }
   updateMuteBtn()
@@ -1568,11 +1642,20 @@ function frame(now) {
     if (soundCool > 0) soundCool -= dt
     updatePowerups(dt, now)
     updateActionButtons()
+    if (status === 'playing' && mode === 'tag') {
+      if (spTagCool > 0) spTagCool -= dt
+      const it = npcs.find((n) => n.it)
+      if (!itIsPlayer && it) {
+        itMarker.visible = true
+        itMarker.position.set(it.x, 2.6, it.z)
+        itMarker.rotation.y += dt * 2
+      } else itMarker.visible = false
+    }
     if (status === 'playing' && (mode === 'hide' || (mode === 'tag' && tagLimit > 0))) {
       timeLeft -= dt
       hud.timer.textContent = fmtTime(timeLeft)
       if (timeLeft <= 0) {
-        if (mode === 'tag') showToast('Te laat! De kinderen kregen een punt')
+        if (mode === 'tag') showToast(myTags > kidTags ? 'Tijd om! Jij had de meeste tikken!' : 'Tijd om! De kinderen winnen!')
         showGameOver()
       }
     }

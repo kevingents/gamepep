@@ -231,6 +231,72 @@ function buildLandmark(ctx, lm) {
       solidRect(Math.floor(x), Math.floor(z) - 4, 1, 9)
       break
     }
+    case 'stadium': {
+      // voetbalstadion: ovaal van tribunes, groen veld, lichtmasten
+      solidRect(Math.floor(x) - 3, Math.floor(z) - 2, 7, 5)
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2
+        box('#8a9098', 1.1, 1.6 + (i % 2) * 0.35, 1.1, x + Math.cos(a) * 3, 0, z + Math.sin(a) * 2.2)
+      }
+      box('#3f8a2e', 4.2, 0.08, 2.6, x, 0, z)
+      box('#ffffff', 0.1, 0.06, 2.0, x, 0.08, z)
+      for (const [lx, lz] of [[-3.4, -2.6], [3.4, -2.6], [-3.4, 2.6], [3.4, 2.6]]) {
+        box('#cfd6df', 0.14, 3.2, 0.14, x + lx, 0, z + lz)
+        box('#fff7c0', 0.55, 0.3, 0.14, x + lx, 3.2, z + lz)
+      }
+      break
+    }
+    case 'ferriswheel': {
+      // reuzenrad op de pier, met gekleurde bakjes (draait)
+      solidRect(Math.floor(x) - 1, Math.floor(z) - 1, 2, 2)
+      box('#a9784f', 5, 0.25, 1.8, x + 2.5, 0.4, z) // pier-dek naar het strand
+      box('#9aa0a8', 0.25, 3.4, 0.25, x - 0.9, 0, z)
+      box('#9aa0a8', 0.25, 3.4, 0.25, x + 0.9, 0, z)
+      const wheel = new THREE.Group()
+      const cabCols = ['#e63946', '#ffd166', '#3a6ff7', '#4caf50', '#9b5de5', '#ff7ab6', '#ff8c42', '#00b4d8']
+      for (let i = 0; i < 4; i++) {
+        const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.12, 4.6, 0.12), matOf('#dfe6ee'))
+        spoke.rotation.z = (i / 4) * Math.PI
+        wheel.add(spoke)
+      }
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2
+        const cab = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.45), matOf(cabCols[i]))
+        cab.position.set(Math.cos(a) * 2.3, Math.sin(a) * 2.3, 0)
+        wheel.add(cab)
+      }
+      wheel.position.set(x, 3.3, z)
+      wheel.userData = { ax: 'z', sp: 0.25 }
+      wheel.traverse((o) => {
+        if (o.isMesh) o.castShadow = true
+      })
+      group.add(wheel)
+      animated.push(wheel)
+      break
+    }
+    case 'home': {
+      // jullie eigen huis: baksteen, trapgevel, witte kozijnen, rode deur
+      solidRect(Math.floor(x) - 1, Math.floor(z), 2, 1)
+      box('#8a4632', 1.8, 2.6, 0.95, x, 0, z)
+      box('#3c3744', 1.84, 0.2, 0.99, x, 0, z)
+      box('#8a4632', 1.8, 0.3, 0.5, x, 2.6, z - 0.1)
+      box('#8a4632', 1.2, 0.3, 0.5, x, 2.9, z - 0.1)
+      box('#8a4632', 0.6, 0.3, 0.5, x, 3.2, z - 0.1)
+      for (const wx of [-0.5, 0.5]) {
+        for (const wy of [0.85, 1.85]) {
+          box('#f4f1e8', 0.5, 0.5, 0.04, x + wx, wy - 0.06, z - 0.49)
+          box('#bfe4ff', 0.38, 0.38, 0.05, x + wx, wy, z - 0.5)
+        }
+      }
+      box('#f4f1e8', 0.4, 0.85, 0.04, x, 0, z - 0.49)
+      box('#9c1f2e', 0.3, 0.75, 0.05, x, 0, z - 0.5)
+      box('#ffd700', 0.14, 0.1, 0.03, x, 1.0, z - 0.52) // het huisnummer
+      box('#3f8a2e', 0.45, 0.18, 0.16, x - 0.5, 0.52, z - 0.56) // bloembak
+      box('#e63946', 0.35, 0.1, 0.12, x - 0.5, 0.7, z - 0.56)
+      box('#3f8a2e', 0.45, 0.18, 0.16, x + 0.5, 0.52, z - 0.56)
+      box('#ffd166', 0.35, 0.1, 0.12, x + 0.5, 0.7, z - 0.56)
+      break
+    }
     // 'label' (en onbekend): alleen een naambordje, geen gebouw
   }
 }
@@ -583,7 +649,7 @@ export function buildCity(group, GRID, city) {
     if (solids.has(k) || reserved.has(k)) return
     solids.add(k)
     const col = palette[(rnd() * palette.length) | 0]
-    const tall = rnd() < 0.18
+    const tall = rnd() < (city.tall || 0.15) // Rotterdam veel hoogbouw, Amsterdam smal en hoog
     const h = tall ? 3.2 + rnd() * 3.6 : 1.5 + rnd() * 1.3
     box(col, 0.92, h, 0.92, x + 0.5, 0, z + 0.5)
     box('#3c3744', 0.96, 0.22, 0.96, x + 0.5, 0, z + 0.5) // plint
@@ -729,7 +795,7 @@ export function buildCity(group, GRID, city) {
     drawbridges,
     train,
     update(dt) {
-      for (const s of animated) s.rotation.x += dt * 0.7
+      for (const s of animated) s.rotation[s.userData.ax || 'x'] += dt * (s.userData.sp || 0.7)
       for (const car of cars) {
         car.pos += car.dir * car.speed * dt
         if (car.pos > GRID - 1) {
@@ -813,7 +879,8 @@ export const CITIES = [
       { name: 'Grote Kerk', type: 'church', x: 19.5, z: 19.5, opts: { tower: 7, spire: '#3f7d6e' }, labelY: 11.5, labelScale: 1.2, fact: 'De Grote Kerk staat op de Grote Markt en heeft een wereldberoemd orgel. Mozart speelde erop toen hij nog maar 10 jaar oud was!' },
       { name: 'Het Spaarne', type: 'label', x: 28, z: 24, labelY: 1.8, fact: 'Het Spaarne is de rivier van Haarlem. Hij slingert dwars door de stad, met bruggen eroverheen.' },
       { name: 'Molen De Adriaan', type: 'windmill', x: 33, z: 9, labelY: 7.2, fact: 'Molen De Adriaan staat aan het Spaarne. Vroeger werd er onder andere tabak en verf gemaakt.' },
-      { name: 'Amsterdamse Poort', type: 'gate', x: 6.5, z: 12, labelY: 6.4, fact: 'De Amsterdamse Poort is meer dan 600 jaar oud. Vroeger ging je hier de stad Haarlem binnen.' },
+      { name: 'Amsterdamse Poort', type: 'gate', x: 26, z: 13, labelY: 6.4, fact: 'De Amsterdamse Poort is meer dan 600 jaar oud. Hij staat vlak bij het Spaarne, net als in het echt.' },
+      { name: 'Lange Herenvest 16', type: 'home', x: 27.5, z: 14.5, labelY: 5.0, labelScale: 1.2, fact: 'Dit is jullie huis aan de Lange Herenvest, vlak bij de Amsterdamse Poort en het Spaarne. Zwaai maar naar de buren!' },
       { name: 'Station Haarlem', type: 'station', x: 19.5, z: 6, labelY: 5.6, fact: 'Vanaf Haarlem reed in 1839 de allereerste trein van Nederland!' },
       { name: 'Veronicaschool', type: 'school', x: 9, z: 31, labelY: 5.8, labelScale: 1.3, fact: 'Dit is jouw school! Hier leer je lezen, rekenen en spelen met al je vriendjes.' },
       { name: 'Grote Markt', type: 'square', x: 30, z: 30, labelY: 3.2, fact: 'Op de Grote Markt is vaak markt. Hier staat ook het standbeeld van Laurens Janszoon Coster.' },
@@ -836,6 +903,7 @@ export const CITIES = [
     key: 'amsterdam',
     name: 'Amsterdam',
     palette: ['#7a4a32', '#8a5a3a', '#6a4028', '#9a6a44', '#5a3a26', '#a87a52'],
+    tall: 0.25,
     start: START,
     landmarks: [
       { name: 'Koninklijk Paleis', type: 'palace', x: 19.5, z: 19.5, opts: { w: 6, color: '#cdbb94', cupola: true }, labelY: 6.0, fact: 'Op de Dam staat het Koninklijk Paleis. Soms werkt of woont de koning hier.' },
@@ -849,9 +917,11 @@ export const CITIES = [
     key: 'rotterdam',
     name: 'Rotterdam',
     palette: ['#8a9098', '#9aa0a8', '#7a8088', '#aab0b8', '#6a7078', '#b8bec6'],
+    tall: 0.4,
     start: START,
     landmarks: [
       { name: 'Erasmusbrug', type: 'bridge', x: 14, z: 26.7, labelY: 8.5, fact: 'De Erasmusbrug over de Nieuwe Maas heet ook "De Zwaan", omdat hij op een witte zwaan lijkt.' },
+      { name: 'De Kuip', type: 'stadium', x: 17, z: 34, labelY: 5.0, labelScale: 1.2, fact: 'De Kuip is het beroemde stadion van Feyenoord, aan de zuidkant van de Maas.' },
       { name: 'Euromast', type: 'tower', x: 6.5, z: 19.5, opts: { h: 13, style: 'modern' }, labelY: 16.0, fact: 'De Euromast is een hoge toren. Vanaf boven zie je de hele stad en de grote haven.' },
       { name: 'Markthal', type: 'archhall', x: 31, z: 19.5, labelY: 7.0, fact: 'De Markthal is een grote hal vol eten, met een reuzenschildering van fruit op het plafond.' },
       { name: 'Kubuswoningen', type: 'cubes', x: 19.5, z: 12, opts: { color: '#e8c54a' }, labelY: 5.5, fact: 'De kubuswoningen zijn huizen die schuin op hun punt staan, net dobbelstenen.' },
@@ -879,7 +949,8 @@ export const CITIES = [
       { name: 'Binnenhof', type: 'palace', x: 19.5, z: 19.5, opts: { w: 6, color: '#b89a6a', towers: true }, labelY: 6.2, fact: 'In het Binnenhof maken de regering en de Tweede Kamer de regels voor heel Nederland. Ervoor ligt de Hofvijver.' },
       { name: 'Vredespaleis', type: 'palace', x: 9, z: 12, opts: { w: 5, color: '#a8552e', cupola: true, spire: '#7a3f24' }, labelY: 6.2, fact: 'In het Vredespaleis praten landen met elkaar om ruzie en oorlog te voorkomen.' },
       { name: 'Madurodam', type: 'miniature', x: 30, z: 12, labelY: 3.0, fact: 'Madurodam is een minipark met heel Nederland in het klein, waar je doorheen kunt lopen.' },
-      { name: 'Scheveningen', type: 'label', x: 2.2, z: 15, labelY: 3.0, fact: 'Scheveningen is het strand van Den Haag, aan de Noordzee. Je kunt er zwemmen en zandkastelen bouwen.' },
+      { name: 'Scheveningen', type: 'label', x: 2.2, z: 24, labelY: 3.0, fact: 'Scheveningen is het strand van Den Haag, aan de Noordzee. Je kunt er zwemmen en zandkastelen bouwen.' },
+      { name: 'De Pier', type: 'ferriswheel', x: 1.5, z: 15, labelY: 7.5, fact: 'Op de pier van Scheveningen staat een reuzenrad. Vanuit de bakjes kijk je over de zee!' },
       { name: 'De Hofvijver', type: 'label', x: 19.6, z: 15.8, labelY: 1.8, fact: 'De Hofvijver is de vijver naast het Binnenhof. Hij ligt er al honderden jaren!' },
     ],
   },

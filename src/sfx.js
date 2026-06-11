@@ -6,6 +6,8 @@ let musicStep = 0
 let rainNode = null
 // vrolijk kort loopje
 const MELODY = [392, 0, 523, 587, 523, 440, 392, 0, 440, 0, 587, 659, 523, 440, 392, 0]
+// eigen feest-deuntje (huisfeestje-sfeer, met dansbeat)
+const PARTY = [523, 523, 0, 659, 0, 587, 523, 587, 659, 0, 784, 659, 587, 523, 440, 494]
 
 function getCtx() {
   if (!audioCtx) {
@@ -129,19 +131,25 @@ export const sfx = {
     if (!this.enabled) return
     tone(170, 0.05, 'triangle', 0.04)
   },
-  // vrolijk achtergrondmuziekje (loop)
-  musicStart() {
+  // achtergrondmuziek: 'vrolijk' (rustig) of 'feest' (huisfeestje met dansbeat)
+  musicStart(style) {
     if (musicTimer) return
     musicStep = 0
-    musicTimer = setInterval(() => {
-      if (!this.enabled) return
-      const f = MELODY[musicStep % MELODY.length]
-      musicStep++
-      if (f) {
-        tone(f, 0.16, 'triangle', 0.05)
-        if (musicStep % 4 === 1) tone(f / 2, 0.3, 'sine', 0.04)
-      }
-    }, 250)
+    const feest = style === 'feest'
+    const mel = feest ? PARTY : MELODY
+    musicTimer = setInterval(
+      () => {
+        if (!this.enabled) return
+        const f = mel[musicStep % mel.length]
+        if (feest && musicStep % 2 === 0) tone(65, 0.12, 'sine', 0.2) // boem-boem
+        musicStep++
+        if (f) {
+          tone(f, feest ? 0.13 : 0.16, feest ? 'square' : 'triangle', feest ? 0.055 : 0.05)
+          if (!feest && musicStep % 4 === 1) tone(f / 2, 0.3, 'sine', 0.04)
+        }
+      },
+      feest ? 200 : 250
+    )
   },
   musicStop() {
     if (musicTimer) {
