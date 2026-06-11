@@ -520,6 +520,39 @@ body {
   opacity: 0.4;
   filter: grayscale(0.6);
 }
+.act-btn {
+  position: relative;
+}
+.act-btn .count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 17px;
+  height: 17px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #07222a;
+  background: #fff;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  pointer-events: none;
+}
+.act-btn .count:empty {
+  display: none;
+}
+/* kleur per power-up = kleur van het oppak-item */
+#btnRadar {
+  color: #36d6e7;
+}
+#btnSpeed {
+  color: #ffd166;
+}
+#btnGiant {
+  color: #ff4fa3;
+}
 
 /* Grotere schermen (tablet): iets ruimere knoppen, makkelijker te tikken */
 @media (min-width: 720px) {

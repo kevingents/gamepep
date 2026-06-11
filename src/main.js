@@ -27,11 +27,14 @@ const START_YAW = 0 // kijk naar het noorden, de stad in
 const TAG_TIME = 60
 const HIDE_TIME = 90
 const POWERS = {
-  radar: { dur: 8, cd: 14, t: 0, cool: 0 },
-  speed: { dur: 5, cd: 12, t: 0, cool: 0 },
-  giant: { dur: 6, cd: 15, t: 0, cool: 0 },
+  radar: { dur: 8, t: 0, count: 0, color: 0x36d6e7 },
+  speed: { dur: 5, t: 0, count: 0, color: 0xffd166 },
+  giant: { dur: 6, t: 0, count: 0, color: 0xff4fa3 },
 }
 const POWER_KEYS = ['radar', 'speed', 'giant']
+const POWER_NAME = { radar: 'een radar', speed: 'supersnel', giant: 'een reus' }
+const POWER_FOUND = { radar: 'Radar gevonden!', speed: 'Supersnel gevonden!', giant: 'Reus gevonden!' }
+let powerups = [] // op te pakken items in de wereld
 let soundCool = 0
 const IS_TOUCH = 'ontouchstart' in window || (navigator.maxTouchPoints || 0) > 0
 let hintShown = false
@@ -312,6 +315,7 @@ function clearRound() {
   diamonds = []
   creepers = []
   npcs = []
+  powerups = []
 }
 function freeCell(taken) {
   for (let tries = 0; tries < 300; tries++) {
@@ -371,6 +375,7 @@ function buildRound() {
     }
     timeLeft = mode === 'tag' ? TAG_TIME : HIDE_TIME
   }
+  for (let i = 0; i < 3; i++) spawnPowerup(taken)
   steveX = START.x
   steveZ = START.z
   player.position.set(steveX, 0, steveZ)
@@ -557,12 +562,16 @@ function roundClear() {
 function activatePower(key) {
   if (status !== 'playing') return
   const p = POWERS[key]
-  if (p.cool > 0 || p.t > 0) return
+  if (p.t > 0) return // al actief
+  if (p.count <= 0) {
+    showToast('Eerst ' + POWER_NAME[key] + ' zoeken!')
+    return
+  }
+  p.count -= 1
   p.t = p.dur
-  p.cool = p.cd
   resumeAudio()
   sfx.power()
-  // (later: ook naar je vriendjes sturen)
+  updateActionButtons()
 }
 function nearestTarget() {
   const arr =
@@ -599,8 +608,11 @@ function updateActionButtons() {
   for (const k of POWER_KEYS) {
     const b = actionBtns[k]
     if (!b) continue
-    b.classList.toggle('cooling', POWERS[k].cool > 0)
-    b.classList.toggle('active', POWERS[k].t > 0)
+    const p = POWERS[k]
+    b.classList.toggle('active', p.t > 0)
+    b.classList.toggle('cooling', p.count <= 0 && p.t <= 0) // grijs als je 'm niet hebt
+    const badge = b.querySelector('.count')
+    if (badge) badge.textContent = p.count > 0 ? String(p.count) : ''
   }
 }
 function playSocial(which) {
@@ -610,6 +622,56 @@ function playSocial(which) {
   if (which === 'fart') sfx.fart()
   else sfx.burp()
   if (inRoom()) sendFx(which) // naar je vriendjes
+}
+
+// ---------- Power-up-items in de wereld (zoeken + oppakken) ----------
+function makePowerupMesh(type) {
+  const m = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.34, 0),
+    new THREE.MeshStandardMaterial({ color: POWERS[type].color, emissive: POWERS[type].color, emissiveIntensity: 0.55, roughness: 0.3, metalness: 0.2 })
+  )
+  m.castShadow = true
+  return m
+}
+function spawnPowerup(taken) {
+  const c = freeCell(taken)
+  if (!c) return
+  const type = POWER_KEYS[(Math.random() * POWER_KEYS.length) | 0]
+  const mesh = makePowerupMesh(type)
+  mesh.position.set(c.x, 1.0, c.z)
+  roundGroup.add(mesh)
+  powerups.push({ type, mesh, x: c.x, z: c.z, baseY: 1.0, phase: Math.random() * 6.28, taken: false, respawnAt: 0 })
+}
+function updatePowerups(dt, now) {
+  for (const pu of powerups) {
+    if (pu.taken) {
+      if (now >= pu.respawnAt) {
+        const c = freeCell(new Set())
+        if (c) {
+          pu.x = c.x
+          pu.z = c.z
+          pu.taken = false
+          pu.mesh.visible = true
+          pu.mesh.position.set(c.x, pu.baseY, c.z)
+        }
+      }
+      continue
+    }
+    pu.mesh.rotation.y += dt * 1.8
+    pu.mesh.rotation.x += dt * 1.1
+    pu.mesh.position.y = pu.baseY + Math.sin(now * 0.003 + pu.phase) * 0.18
+    const dx = pu.x - steveX
+    const dz = pu.z - steveZ
+    if (dx * dx + dz * dz < 0.6 * 0.6) {
+      pu.taken = true
+      pu.mesh.visible = false
+      pu.respawnAt = now + 12000
+      POWERS[pu.type].count += 1
+      sfx.coin()
+      showToast(POWER_FOUND[pu.type])
+      updateActionButtons()
+    }
+  }
 }
 
 // ---------- Multiplayer ----------
@@ -642,8 +704,10 @@ function startMultiplayer(code, isCreator) {
   player.visible = false
   for (const k of POWER_KEYS) {
     POWERS[k].t = 0
-    POWERS[k].cool = 0
+    POWERS[k].count = 0
   }
+  const puTaken = new Set()
+  for (let i = 0; i < 4; i++) spawnPowerup(puTaken)
   soundCool = 0
   tagCool = 1
   radarBeacon.visible = false
@@ -1007,7 +1071,7 @@ function startGame(m) {
   round = 1
   for (const k of POWER_KEYS) {
     POWERS[k].t = 0
-    POWERS[k].cool = 0
+    POWERS[k].count = 0
   }
   soundCool = 0
   radarBeacon.visible = false
@@ -1372,9 +1436,9 @@ function frame(now) {
     for (const k of POWER_KEYS) {
       const p = POWERS[k]
       if (p.t > 0) p.t -= dt
-      if (p.cool > 0) p.cool -= dt
     }
     if (soundCool > 0) soundCool -= dt
+    updatePowerups(dt, now)
     updateActionButtons()
     if (status === 'playing' && (mode === 'tag' || mode === 'hide')) {
       timeLeft -= dt
