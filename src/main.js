@@ -16,11 +16,13 @@ import { getTop, topScore, qualifies, addScore } from './scores.js'
 const GRID = 40
 const MAX_HEARTS = 3
 const STEVE_SPEED = 5.4
+const TURN_SPEED = 2.4
 const CREEPER_SPEED = 1.9
 const BASE_DIAMONDS = 6
 const BASE_CREEPERS = 2
 const BASE_KIDS = 4
-const START = { x: 19.5, z: 20.5 }
+const START = { x: 21.5, z: 24.5 } // op de straat naast de Grote Markt
+const START_YAW = 0 // kijk naar het noorden, de stad in
 const TAG_TIME = 70
 const HIDE_TIME = 90
 const MODE_LABEL = { diamond: 'DIAMANTEN', tag: 'TIKKERTJE', hide: 'VERSTOPPEN' }
@@ -149,6 +151,7 @@ let round = 1
 let steveX = START.x
 let steveZ = START.z
 let walkPhase = 0
+let yaw = Math.PI // kijkrichting (radialen); PI = naar het zuiden
 let faceX = 0
 let faceZ = -1
 let invuln = 0
@@ -281,8 +284,9 @@ function buildRound() {
   player.rotation.y = 0
   player.visible = false // first person: je eigen popje zie je niet
   invuln = 0
-  faceX = 0
-  faceZ = -1
+  yaw = START_YAW
+  faceX = Math.sin(yaw)
+  faceZ = -Math.cos(yaw)
   camera.fov = 70
   camera.updateProjectionMatrix()
   firstPersonCam()
@@ -298,36 +302,30 @@ function moveSteve(dx, dz) {
   if (!cellSolid(steveX, nz)) steveZ = nz
 }
 function updatePlayer(dt) {
-  let vx = (held.right ? 1 : 0) - (held.left ? 1 : 0)
-  let vz = (held.down ? 1 : 0) - (held.up ? 1 : 0)
+  // tank-besturing: links/rechts = draaien, omhoog = vooruit, omlaag = achteruit
+  const turn = (held.right ? 1 : 0) - (held.left ? 1 : 0)
+  const fwd = (held.up ? 1 : 0) - (held.down ? 1 : 0)
+  yaw += turn * TURN_SPEED * dt
+  faceX = Math.sin(yaw)
+  faceZ = -Math.cos(yaw)
   const u = player.userData
-  if (vx !== 0 || vz !== 0) {
-    const len = Math.hypot(vx, vz)
-    vx /= len
-    vz /= len
-    moveSteve(vx * STEVE_SPEED * dt, vz * STEVE_SPEED * dt)
-    player.rotation.y = Math.atan2(vx, -vz)
-    // kijkrichting soepel meedraaien met de looprichting
-    const fk = Math.min(1, dt * 9)
-    faceX += (vx - faceX) * fk
-    faceZ += (vz - faceZ) * fk
-    const fl = Math.hypot(faceX, faceZ) || 1
-    faceX /= fl
-    faceZ /= fl
+  if (fwd !== 0) {
+    const sp = STEVE_SPEED * dt * (fwd > 0 ? 1 : 0.6) // achteruit iets langzamer
+    moveSteve(faceX * fwd * sp, faceZ * fwd * sp)
     walkPhase += dt * 11
     const sw = Math.sin(walkPhase) * 0.6
     u.lLeg.rotation.x = sw
     u.rLeg.rotation.x = -sw
     u.lArm.rotation.x = -sw
     u.rArm.rotation.x = sw
-    player.position.set(steveX, Math.abs(Math.sin(walkPhase)) * 0.06, steveZ)
   } else {
     u.lLeg.rotation.x *= 0.7
     u.rLeg.rotation.x *= 0.7
     u.lArm.rotation.x *= 0.7
     u.rArm.rotation.x *= 0.7
-    player.position.set(steveX, 0, steveZ)
   }
+  player.position.set(steveX, 0, steveZ)
+  player.rotation.y = yaw
   if (invuln > 0) invuln -= dt
 }
 function updateCreepers(dt) {
@@ -451,8 +449,9 @@ function hit() {
   invuln = 1.3
   steveX = START.x
   steveZ = START.z
-  faceX = 0
-  faceZ = -1
+  yaw = START_YAW
+  faceX = Math.sin(yaw)
+  faceZ = -Math.cos(yaw)
   player.position.set(steveX, 0, steveZ)
   showHitFlash()
   updateHud()
