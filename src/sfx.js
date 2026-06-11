@@ -44,9 +44,19 @@ export const sfx = {
     if (!this.enabled) return
     tone(160, 0.2, 'sawtooth', 0.18)
   },
-  // level gehaald
+  // ronde gehaald
   win() {
     if (!this.enabled) return
     ;[523, 659, 784, 1046].forEach((f, i) => tone(f, 0.18, 'square', 0.14, i * 0.12))
+  },
+  // arcade start-jingle
+  start() {
+    if (!this.enabled) return
+    ;[392, 523, 659, 784].forEach((f, i) => tone(f, 0.12, 'square', 0.13, i * 0.07))
+  },
+  // game over
+  gameover() {
+    if (!this.enabled) return
+    ;[523, 415, 330, 220].forEach((f, i) => tone(f, 0.22, 'sawtooth', 0.16, i * 0.16))
   },
 }
