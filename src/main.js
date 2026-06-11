@@ -15,7 +15,7 @@ import { joinRoom, leaveRoom, sendState, sendFx, sendTag, makeCode, inRoom } fro
 // =====================================================================
 
 const GRID = 160
-const ROAD_STEP = 7
+const ROAD_STEP = 14
 const MAX_HEARTS = 3
 const STEVE_SPEED = 6.0
 const TURN_SPEED = 2.4
@@ -112,7 +112,7 @@ function pillarGeo(w, h, d) {
 // ---------- Three.js basis ----------
 const scene = new THREE.Scene()
 scene.background = new THREE.Color(0x9fd6ff)
-scene.fog = new THREE.Fog(0x9fd6ff, GRID, GRID * 2.6)
+scene.fog = new THREE.Fog(0x9fd6ff, GRID * 1.2, GRID * 3.4)
 
 const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200)
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })

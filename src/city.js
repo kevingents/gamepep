@@ -273,11 +273,40 @@ export function buildCity(group, GRID, city) {
 
   // De stad-data is ontworpen voor een 40-veld; schaal mee naar de echte grootte.
   const S = GRID / 40
+  const STEP = 14 // grotere blokken = ruimere stad, plek voor parken en bossen
   const ROADS = []
-  for (let r = 7; r < GRID - 2; r += 7) ROADS.push(r)
+  for (let r = STEP; r < GRID - 2; r += STEP) ROADS.push(r)
   const roadSet = new Set(ROADS)
   const onRoad = (v) => roadSet.has(v)
   const nearRoad = (v) => roadSet.has(v) || roadSet.has(v - 1) || roadSet.has(v + 1)
+  // afstand tot dichtstbijzijnde weg per as (weg/stoep/blok herkennen)
+  const distAxis = new Array(GRID)
+  for (let v = 0; v < GRID; v++) {
+    let d = 99
+    for (const L of ROADS) d = Math.min(d, Math.abs(v - L))
+    distAxis[v] = d
+  }
+  const isRoadCell = (x, z) => distAxis[x] <= 1 || distAxis[z] <= 1
+  const isSideCell = (x, z) => !isRoadCell(x, z) && (distAxis[x] === 2 || distAxis[z] === 2)
+
+  // stabiele willekeur per stad
+  let citySeed = 0
+  for (let i = 0; i < city.key.length; i++) citySeed = (citySeed * 31 + city.key.charCodeAt(i)) | 0
+  let seed = (Math.abs(citySeed) % 9000) + 11
+  const rnd = () => {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff
+    return seed / 0x7fffffff
+  }
+  function blockType(bi, bj) {
+    let h = (bi * 374761393 + bj * 668265263 + citySeed * 2654435761) | 0
+    h = ((h ^ (h >> 13)) * 1274126177) | 0
+    const r = ((h ^ (h >> 16)) >>> 0) / 4294967295
+    if (r < 0.52) return 'res'
+    if (r < 0.7) return 'park'
+    if (r < 0.82) return 'forest'
+    if (r < 0.92) return 'water'
+    return 'plaza'
+  }
 
   // Water (rivieren langs de randen), geschaald
   for (const w of city.waters || []) {
@@ -289,20 +318,20 @@ export function buildCity(group, GRID, city) {
     solidRect(wx, wz, ww, wd)
   }
 
-  // Grachten (watertjes) door de stad, met bruggen waar de wegen kruisen
+  // Grachten (watertjes) met bruggen waar de wegen kruisen
   const canalsX = []
-  for (let x = 17; x < GRID - 6; x += 28) if (!onRoad(x)) canalsX.push(x)
+  for (let x = 21; x < GRID - 6; x += 2 * STEP) if (!nearRoad(x)) canalsX.push(x)
   const canalsZ = []
-  for (let z = 31; z < GRID - 6; z += 28) if (!onRoad(z)) canalsZ.push(z)
+  for (let z = 35; z < GRID - 6; z += 2 * STEP) if (!nearRoad(z)) canalsZ.push(z)
   for (const c of canalsX) {
     for (let z = 1; z < GRID - 1; z++) {
-      if (nearRoad(z)) continue // bij een weg loopt er een brug overheen
+      if (nearRoad(z)) continue
       box('#3aa0d8', 1, 0.12, 1, c + 0.5, 0, z + 0.5)
       solids.add(c + ',' + z)
     }
     for (const R of ROADS) {
-      box('#9a6a3e', 1.3, 0.08, 3.2, c + 0.5, 0.06, R + 0.5) // brugdek
-      box('#6f4a2e', 0.12, 0.35, 3.2, c - 0.05, 0.12, R + 0.5) // leuning
+      box('#9a6a3e', 1.3, 0.08, 3.2, c + 0.5, 0.06, R + 0.5)
+      box('#6f4a2e', 0.12, 0.35, 3.2, c - 0.05, 0.12, R + 0.5)
       box('#6f4a2e', 0.12, 0.35, 3.2, c + 1.05, 0.12, R + 0.5)
     }
   }
@@ -319,19 +348,21 @@ export function buildCity(group, GRID, city) {
     }
   }
 
-  // Straten + markering
+  // Straten + stoepen + wegmarkering
   for (const R of ROADS) {
     box('#3a3f46', 3, 0.04, GRID, R + 0.5, 0, GRID / 2)
     box('#3a3f46', GRID, 0.04, 3, GRID / 2, 0, R + 0.5)
-  }
-  for (const R of ROADS) {
+    for (const d of [-2, 2]) {
+      box('#9aa0a8', 1, 0.05, GRID, R + d + 0.5, 0.005, GRID / 2) // stoep
+      box('#9aa0a8', GRID, 0.05, 1, GRID / 2, 0.005, R + d + 0.5)
+    }
     for (let t = 1; t < GRID; t += 2) {
-      box('#e8c54a', 0.12, 0.05, 0.5, R + 0.5, 0.01, t + 0.25)
-      box('#e8c54a', 0.5, 0.05, 0.12, t + 0.25, 0.01, R + 0.5)
+      box('#e8c54a', 0.12, 0.05, 0.5, R + 0.5, 0.012, t + 0.25)
+      box('#e8c54a', 0.5, 0.05, 0.12, t + 0.25, 0.012, R + 0.5)
     }
   }
 
-  // Herkenningspunten eerst (zodat er geen huizen overheen komen)
+  // Herkenningspunten
   const landmarks = []
   for (const lm of city.landmarks) {
     const lx = lm.x * S
@@ -342,66 +373,83 @@ export function buildCity(group, GRID, city) {
     landmarks.push({ name: lm.name, x: lx, z: lz, fact: lm.fact })
   }
 
-  // Huizen langs de straten (een stukje van de weg af)
+  // Bouwstenen
   const palette = city.palette
-  let seed = 7
-  const rnd = () => {
-    seed = (seed * 1103515245 + 12345) & 0x7fffffff
-    return seed / 0x7fffffff
-  }
-  function tryHouse(x, z) {
+  const greens = ['#4f9e35', '#3f8a2e', '#5aa83f', '#469a36']
+  function house(x, z) {
     if (x < 1 || z < 1 || x >= GRID - 1 || z >= GRID - 1) return
     const k = x + ',' + z
     if (solids.has(k) || reserved.has(k)) return
-    if (rnd() < 0.22) return
     solids.add(k)
     const col = palette[(rnd() * palette.length) | 0]
-    const tall = rnd() < 0.16 // af en toe een hoog flatgebouw
+    const tall = rnd() < 0.18
     const h = tall ? 3.2 + rnd() * 3.6 : 1.4 + rnd() * 1.3
     box(col, 0.92, h, 0.92, x + 0.5, 0, z + 0.5)
-    // raamrijen (geeft flats een echte stadslook)
     const rows = Math.max(1, Math.min(6, Math.floor(h / 1.0)))
     for (let r = 0; r < rows; r++) box('#bfe4ff', 0.34, 0.32, 0.05, x + 0.5, 0.7 + r * 0.95, z + 0.03)
-    // dak: plat / trapgevel / punt
     const st = rnd()
-    if (tall || st > 0.66) {
-      box('#5a5a5a', 0.96, 0.16, 0.96, x + 0.5, h, z + 0.5)
-    } else if (st > 0.33) {
+    if (tall || st > 0.66) box('#5a5a5a', 0.96, 0.16, 0.96, x + 0.5, h, z + 0.5)
+    else if (st > 0.33) {
       box(col, 0.92, 0.35, 0.5, x + 0.5, h, z + 0.2)
       box(col, 0.6, 0.35, 0.5, x + 0.5, h + 0.35, z + 0.2)
       box(col, 0.3, 0.35, 0.5, x + 0.5, h + 0.7, z + 0.2)
-    } else {
-      cone('#7a3f24', 0.78, 0.7, x + 0.5, h, z + 0.5, 4)
-    }
+    } else cone('#7a3f24', 0.78, 0.7, x + 0.5, h, z + 0.5, 4)
     box('#3a2a1c', 0.26, 0.7, 0.05, x + 0.5, 0, z + 0.04)
   }
-  for (const R of ROADS) {
-    for (let z = 1; z < GRID - 1; z++) {
-      if (onRoad(z)) continue
-      tryHouse(R - 3, z)
-      tryHouse(R + 3, z)
-    }
-    for (let x = 1; x < GRID - 1; x++) {
-      if (onRoad(x)) continue
-      tryHouse(x, R - 3)
-      tryHouse(x, R + 3)
-    }
+  function tree(x, z) {
+    const k = x + ',' + z
+    if (solids.has(k) || reserved.has(k)) return
+    solids.add(k)
+    box('#7a5230', 0.3, 1.0, 0.3, x + 0.5, 0, z + 0.5)
+    box(greens[(rnd() * greens.length) | 0], 1.0 + rnd() * 0.3, 1.1, 1.0 + rnd() * 0.3, x + 0.5, 1.0, z + 0.5)
+  }
+  function pond(x, z) {
+    const k = x + ',' + z
+    if (solids.has(k) || reserved.has(k)) return
+    solids.add(k)
+    box('#3aa0d8', 1, 0.1, 1, x + 0.5, 0, z + 0.5)
   }
 
   // Bomen op de stoep
-  function tryTree(x, z) {
-    if (x < 1 || z < 1 || x >= GRID - 1 || z >= GRID - 1) return
-    const k = x + ',' + z
-    if (solids.has(k) || reserved.has(k)) return
-    if (rnd() < 0.5) return
-    solids.add(k) // je kunt niet door bomen heen
-    box('#7a5230', 0.3, 1.0, 0.3, x + 0.5, 0, z + 0.5)
-    box('#4f9e35', 1.0, 1.1, 1.0, x + 0.5, 1.0, z + 0.5)
-  }
   for (const R of ROADS) {
-    for (let z = 2; z < GRID - 2; z += 2) {
-      tryTree(R - 2, z)
-      tryTree(R + 2, z)
+    for (let t = 4; t < GRID - 3; t += 3) {
+      if (distAxis[t] >= 3 && rnd() < 0.5) tree(R - 2, t)
+      if (distAxis[t] >= 3 && rnd() < 0.5) tree(R + 2, t)
+    }
+  }
+
+  // Blokken vullen: huizen aan de straat, en blokken als park / bos / vijver / plein
+  for (let x = 1; x < GRID - 1; x++) {
+    for (let z = 1; z < GRID - 1; z++) {
+      if (isRoadCell(x, z) || isSideCell(x, z)) continue
+      const k = x + ',' + z
+      if (solids.has(k) || reserved.has(k)) continue
+      const facesStreet = distAxis[x] === 3 || distAxis[z] === 3
+      const bi = Math.floor(x / STEP)
+      const bj = Math.floor(z / STEP)
+      const type = blockType(bi, bj)
+      const cx = bi * STEP + STEP / 2
+      const cz = bj * STEP + STEP / 2
+      const dd = (x + 0.5 - cx) * (x + 0.5 - cx) + (z + 0.5 - cz) * (z + 0.5 - cz)
+      if (type === 'res') {
+        if (facesStreet) {
+          if (rnd() > 0.25) house(x, z)
+        } else if (rnd() < 0.06) tree(x, z)
+      } else if (type === 'park') {
+        if (dd < STEP * STEP * 0.032) pond(x, z)
+        else if (rnd() < 0.18) tree(x, z)
+      } else if (type === 'forest') {
+        if (rnd() < 0.48) tree(x, z)
+      } else if (type === 'water') {
+        if (dd < STEP * STEP * 0.1) pond(x, z)
+        else if (rnd() < 0.1) tree(x, z)
+      } else {
+        box('#bdb6a8', 1, 0.05, 1, x + 0.5, 0, z + 0.5)
+        if (Math.abs(x + 0.5 - cx) < 0.9 && Math.abs(z + 0.5 - cz) < 0.9) {
+          box('#8a8f98', 0.4, 1.6, 0.4, x + 0.5, 0, z + 0.5)
+          box('#b9a06a', 0.5, 0.9, 0.3, x + 0.5, 1.6, z + 0.5)
+        }
+      }
     }
   }
 
