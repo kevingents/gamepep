@@ -149,6 +149,10 @@ let pendingScore = 0
 let diamonds = []
 let creepers = []
 let totalDiamonds = 0
+let playerName = loadName()
+let nameTag = null
+let shownFacts = new Set()
+const FACT_RADIUS = 2.7
 
 const cellKey = (cx, cz) => cx + ',' + cz
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v)
@@ -406,7 +410,9 @@ function showIntro() {
   player.visible = false
   setOverviewCam()
   hideAllScreens()
+  hideFact()
   $('introHi').textContent = topScore()
+  $('introGreeting').textContent = playerName ? 'Hoi, ' + playerName + '!' : ''
   $('intro').classList.add('show')
 }
 function startGame() {
@@ -416,6 +422,8 @@ function startGame() {
   setSceneVisible(true)
   setChrome(true)
   hideAllScreens()
+  hideFact()
+  shownFacts = new Set()
   score = 0
   lives = MAX_HEARTS
   round = 1
@@ -429,6 +437,7 @@ function showCreator() {
   setChrome(false)
   hideAllScreens()
   $('creator').classList.add('show')
+  $('nameInput').value = playerName
   buildCreatorUI()
   player.visible = true
   player.position.set(0, 0, 0)
@@ -436,7 +445,10 @@ function showCreator() {
   setCreatorCam()
 }
 function exitCreator() {
+  playerName = ($('nameInput').value || '').trim().slice(0, 10)
+  saveName(playerName)
   saveCfg(playerCfg)
+  updateNameTag()
   showIntro()
 }
 function showGameOver() {
@@ -447,11 +459,12 @@ function showGameOver() {
   setChrome(false)
   player.visible = false
   setOverviewCam()
+  hideFact()
   $('finalScore').textContent = score
   const box = $('initialsBox')
   if (qualifies(score)) {
     box.classList.add('show')
-    $('initialsInput').value = ''
+    $('initialsInput').value = playerName
     setTimeout(() => $('initialsInput').focus(), 120)
   } else {
     box.classList.remove('show')
@@ -516,6 +529,77 @@ function showToast(text) {
   el.classList.add('show')
   if (toastTimer) clearTimeout(toastTimer)
   toastTimer = setTimeout(() => el.classList.remove('show'), 1200)
+}
+
+// ---------- Naam ----------
+function loadName() {
+  try {
+    return localStorage.getItem('haarlem_naam') || ''
+  } catch (e) {
+    return ''
+  }
+}
+function saveName(n) {
+  try {
+    localStorage.setItem('haarlem_naam', n)
+  } catch (e) {}
+}
+function makeTagSprite(text) {
+  const fs = 30
+  const c = document.createElement('canvas')
+  let x = c.getContext('2d')
+  x.font = 'bold ' + fs + 'px Trebuchet MS, Arial, sans-serif'
+  c.width = Math.ceil(x.measureText(text).width) + 24
+  c.height = fs + 18
+  x = c.getContext('2d')
+  x.font = 'bold ' + fs + 'px Trebuchet MS, Arial, sans-serif'
+  const w = c.width
+  const h = c.height
+  const r = 10
+  x.fillStyle = 'rgba(255,79,163,0.92)'
+  x.beginPath()
+  x.moveTo(r, 0)
+  x.arcTo(w, 0, w, h, r)
+  x.arcTo(w, h, 0, h, r)
+  x.arcTo(0, h, 0, 0, r)
+  x.arcTo(0, 0, w, 0, r)
+  x.closePath()
+  x.fill()
+  x.fillStyle = '#fff'
+  x.textAlign = 'center'
+  x.textBaseline = 'middle'
+  x.fillText(text, w / 2, h / 2 + 1)
+  const tex = new THREE.CanvasTexture(c)
+  tex.minFilter = THREE.LinearFilter
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }))
+  spr.renderOrder = 998
+  const a = c.width / c.height
+  spr.scale.set(0.55 * a, 0.55, 1)
+  return spr
+}
+function updateNameTag() {
+  if (nameTag) {
+    scene.remove(nameTag)
+    nameTag = null
+  }
+  if (playerName) {
+    nameTag = makeTagSprite(playerName)
+    scene.add(nameTag)
+  }
+}
+
+// ---------- Haarlem-weetje ----------
+let factTimer = null
+function showFact(name, text) {
+  $('factName').textContent = name
+  $('factText').textContent = text
+  $('factcard').classList.add('show')
+  sfx.fact()
+  if (factTimer) clearTimeout(factTimer)
+  factTimer = setTimeout(() => $('factcard').classList.remove('show'), 6500)
+}
+function hideFact() {
+  $('factcard').classList.remove('show')
 }
 
 // ---------- Geluid aan/uit ----------
@@ -585,11 +669,18 @@ $('btnCreator').addEventListener('click', showCreator)
 $('btnCreatorDone').addEventListener('click', exitCreator)
 $('btnRestart').addEventListener('click', showIntro)
 $('btnSaveScore').addEventListener('click', () => {
-  let name = ($('initialsInput').value || 'AAA').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3)
-  if (!name) name = 'AAA'
+  let name = ($('initialsInput').value || '').trim().slice(0, 10)
+  if (!name) name = 'SPELER'
+  playerName = name
+  saveName(name)
+  updateNameTag()
   const top = addScore(name, pendingScore)
   renderHiTable(top)
   $('initialsBox').classList.remove('show')
+})
+$('nameInput').addEventListener('input', (e) => {
+  playerName = e.target.value.trim().slice(0, 10)
+  updateNameTag()
 })
 
 // ---------- Schermgrootte ----------
@@ -620,11 +711,25 @@ function frame(now) {
       d.mesh.rotation.y += dt * 2.2
       d.mesh.position.y = d.baseY + Math.sin(now * 0.003 + d.phase) * 0.15
     }
+    for (const lm of world.landmarks) {
+      if (shownFacts.has(lm.name)) continue
+      const dx = lm.x - steveX
+      const dz = lm.z - steveZ
+      if (dx * dx + dz * dz < FACT_RADIUS * FACT_RADIUS) {
+        shownFacts.add(lm.name)
+        showFact(lm.name, lm.fact)
+      }
+    }
     followCam(dt)
   } else if (status === 'creator') {
     player.rotation.y += dt * 0.8
   } else {
     world.update(dt)
+  }
+  if (nameTag) {
+    const show = player.visible && (status === 'playing' || status === 'creator')
+    nameTag.visible = show
+    if (show) nameTag.position.set(player.position.x, player.position.y + 2.7, player.position.z)
   }
   renderer.render(scene, camera)
   requestAnimationFrame(frame)
@@ -634,6 +739,7 @@ function frame(now) {
 function init() {
   resize()
   updateMuteBtn()
+  updateNameTag()
   showIntro()
   requestAnimationFrame(frame)
 }

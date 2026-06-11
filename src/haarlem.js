@@ -208,8 +208,62 @@ export function buildHaarlem(group, GRID) {
     box(group, 1.1, 1.1, 1.1, '#4f9e35', tx + 0.5, 1.1, tz + 0.5)
   }
 
+  // Haarlemse weetjes: verschijnen als je dichtbij komt (educatief).
+  // x/z is een loop-plek vlak bij het gebouw.
+  const landmarks = [
+    {
+      name: 'Grote Kerk',
+      x: 11,
+      z: 13,
+      fact: 'De Grote Kerk staat op de Grote Markt en heeft een wereldberoemd orgel. Mozart speelde erop toen hij nog maar 10 jaar oud was!',
+    },
+    {
+      name: 'Molen De Adriaan',
+      x: 17.5,
+      z: 5,
+      fact: 'Molen De Adriaan staat aan het Spaarne. Vroeger werd er in de molen onder andere tabak en verf gemaakt.',
+    },
+    {
+      name: 'Amsterdamse Poort',
+      x: 4,
+      z: 15,
+      fact: 'De Amsterdamse Poort is meer dan 600 jaar oud. Vroeger ging je hier de stad Haarlem binnen.',
+    },
+    {
+      name: 'Station Haarlem',
+      x: 9,
+      z: 5,
+      fact: 'Vanaf Haarlem reed in 1839 de allereerste trein van Nederland! Het station is prachtig versierd.',
+    },
+    {
+      name: 'Het Spaarne',
+      x: 17.5,
+      z: 12,
+      fact: 'Het Spaarne is de rivier van Haarlem. Er varen bootjes en je kunt er gezellig langs wandelen.',
+    },
+    {
+      name: 'Grote Markt',
+      x: 14,
+      z: 12,
+      fact: 'Op de Grote Markt is vaak markt. Hier staat ook het standbeeld van Laurens Janszoon Coster.',
+    },
+    {
+      name: 'Grachtenhuisjes',
+      x: 11.5,
+      z: 17.5,
+      fact: 'Deze oude huisjes hebben trapjes bovenaan: dat heet een trapgevel. Ze zijn honderden jaren oud.',
+    },
+    {
+      name: 'Veronicaschool',
+      x: 5,
+      z: 21,
+      fact: 'Dit is jouw school! Hier leer je lezen, rekenen en spelen met al je vriendjes.',
+    },
+  ]
+
   return {
     solids,
+    landmarks,
     update(dt) {
       for (const s of animated) s.rotation.x += dt * 0.7
     },

@@ -27,7 +27,7 @@ export function qualifies(score) {
 // Voeg een score toe en geef de nieuwe top-10 terug.
 export function addScore(name, score) {
   const top = getTop()
-  top.push({ name: (name || '???').slice(0, 3).toUpperCase(), score })
+  top.push({ name: (name || 'SPELER').slice(0, 10), score })
   top.sort((a, b) => b.score - a.score)
   const trimmed = top.slice(0, MAX)
   try {
