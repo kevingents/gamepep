@@ -308,45 +308,245 @@ export function buildCity(group, GRID, city) {
     return 'plaza'
   }
 
-  // Water (rivieren langs de randen), geschaald
-  for (const w of city.waters || []) {
-    const wx = Math.round(w.x * S)
-    const wz = Math.round(w.z * S)
-    const ww = Math.max(2, Math.round(w.w * S))
-    const wd = Math.max(2, Math.round(w.d * S))
-    box('#3aa0d8', ww, 0.12, wd, wx + ww / 2, 0, wz + wd / 2)
-    solidRect(wx, wz, ww, wd)
+  // basis-bouwstenen voor water (1 cel water = niet beloopbaar)
+  const water = (x, z) => {
+    if (x < 0 || z < 0 || x >= GRID || z >= GRID) return
+    box('#3aa0d8', 1, 0.12, 1, x + 0.5, 0, z + 0.5)
+    solids.add(x + ',' + z)
+  }
+  const deckCell = (x, z) => box('#9a6a3e', 1.1, 0.07, 1.1, x + 0.5, 0.04, z + 0.5)
+
+  // Grachten (watertjes) met bruggen waar de wegen kruisen. De leuningen staan
+  // langs de zijkanten (in de looprichting). Sommige bruggen zijn ophaalbruggen
+  // die open en dicht gaan, met een bootje dat eronderdoor vaart.
+  const drawbridges = []
+  function fixedBridgeX(c, R) {
+    // kanaal loopt langs z (kolom x=c); je loopt langs x over de brug
+    box('#9a6a3e', 1.6, 0.08, 3.2, c + 0.5, 0.04, R + 0.5)
+    box('#6f4a2e', 1.6, 0.32, 0.14, c + 0.5, 0.12, R - 0.95)
+    box('#6f4a2e', 1.6, 0.32, 0.14, c + 0.5, 0.12, R + 1.95)
+  }
+  function fixedBridgeZ(c, R) {
+    // kanaal loopt langs x (rij z=c); je loopt langs z over de brug
+    box('#9a6a3e', 3.2, 0.08, 1.6, R + 0.5, 0.04, c + 0.5)
+    box('#6f4a2e', 0.14, 0.32, 1.6, R - 0.95, 0.12, c + 0.5)
+    box('#6f4a2e', 0.14, 0.32, 1.6, R + 1.95, 0.12, c + 0.5)
+  }
+  function makeDrawbridge(c, R, axis) {
+    const wood = matOf('#9a6a3e')
+    const dark = matOf('#5a3a22')
+    const g = new THREE.Group()
+    const cells =
+      axis === 'x'
+        ? [c + ',' + (R - 1), c + ',' + R, c + ',' + (R + 1)]
+        : [R - 1 + ',' + c, R + ',' + c, R + 1 + ',' + c]
+    // water loopt onder de brug door (zichtbaar als hij open staat)
+    for (const k of cells) {
+      const [gx, gz] = k.split(',').map(Number)
+      box('#3aa0d8', 1, 0.12, 1, gx + 0.5, 0, gz + 0.5)
+    }
+    // wegdek dat omhoog klapt (pivot aan een kant)
+    const deck =
+      axis === 'x'
+        ? new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.12, 2.9).translate(0.9, 0, 0), wood)
+        : new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.12, 1.8).translate(0, 0, 0.9), wood)
+    deck.castShadow = true
+    if (axis === 'x') deck.position.set(c - 0.4, 0.16, R + 0.5)
+    else deck.position.set(R + 0.5, 0.16, c - 0.4)
+    // hijswerk: twee palen + bovenbalk + balansarm met contragewicht
+    const postGeo = new THREE.BoxGeometry(0.22, 3.4, 0.22)
+    const p1 = new THREE.Mesh(postGeo, dark)
+    const p2 = new THREE.Mesh(postGeo, dark)
+    let beam
+    if (axis === 'x') {
+      p1.position.set(c - 0.5, 1.7, R - 0.85)
+      p2.position.set(c - 0.5, 1.7, R + 1.85)
+      beam = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 3.0), dark)
+      beam.position.set(c - 0.5, 3.4, R + 0.5)
+    } else {
+      p1.position.set(R - 0.85, 1.7, c - 0.5)
+      p2.position.set(R + 1.85, 1.7, c - 0.5)
+      beam = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.22, 0.22), dark)
+      beam.position.set(R + 0.5, 3.4, c - 0.5)
+    }
+    const arm = new THREE.Group()
+    const armBeam =
+      axis === 'x'
+        ? new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.14, 2.6).translate(1.0, 0, 0), dark)
+        : new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.14, 2.0).translate(0, 0, 1.0), dark)
+    const cw = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), dark)
+    if (axis === 'x') cw.position.set(-0.45, 0, 0)
+    else cw.position.set(0, 0, -0.45)
+    arm.add(armBeam, cw)
+    if (axis === 'x') arm.position.set(c - 0.5, 3.3, R + 0.5)
+    else arm.position.set(R + 0.5, 3.3, c - 0.5)
+    // bootje dat tijdens het openstaan langsvaart
+    const boat = new THREE.Group()
+    const hull = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.35, 2.0), matOf('#7a4a2a'))
+    hull.position.y = 0.22
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.4, 0.7), matOf('#f2efe6'))
+    cabin.position.set(0, 0.55, -0.25)
+    boat.add(hull, cabin)
+    boat.visible = false
+    if (axis === 'z') boat.rotation.y = Math.PI / 2
+    g.add(deck, p1, p2, beam, arm, boat)
+    group.add(g)
+    drawbridges.push({ deck, arm, boat, axis, c, R, cells, t: (c * 7 + R) % 12, blocked: false })
+  }
+  // ---- Plattegrond-bouwstenen: rivieren, grachten, ringen, vijvers, zee ----
+  function riverV(fx, w, bridges) {
+    for (let z = 4; z < GRID; z++) {
+      const cx = Math.round(fx(z))
+      if (bridges.some((R) => z >= R - 1 && z <= R + 1)) continue
+      for (let x = Math.max(0, cx - (w >> 1)), n = 0; n < w && x < GRID; x++, n++) water(x, z)
+    }
+    for (const R of bridges) {
+      const cx = Math.round(fx(R))
+      box('#9a6a3e', w + 2, 0.09, 3.2, cx + 0.5, 0.04, R + 0.5)
+      box('#6f4a2e', w + 2, 0.32, 0.14, cx + 0.5, 0.13, R - 0.95)
+      box('#6f4a2e', w + 2, 0.32, 0.14, cx + 0.5, 0.13, R + 1.95)
+    }
+  }
+  function riverH(fz, w, bridges) {
+    for (let x = 0; x < GRID; x++) {
+      const cz = Math.round(fz(x))
+      if (bridges.some((R) => x >= R - 1 && x <= R + 1)) continue
+      for (let z = Math.max(4, cz - (w >> 1)), n = 0; n < w && z < GRID; z++, n++) water(x, z)
+    }
+    for (const R of bridges) {
+      const cz = Math.round(fz(R))
+      box('#9a6a3e', 3.2, 0.09, w + 2, R + 0.5, 0.04, cz + 0.5)
+      box('#6f4a2e', 0.14, 0.32, w + 2, R - 0.95, 0.13, cz + 0.5)
+      box('#6f4a2e', 0.14, 0.32, w + 2, R + 1.95, 0.13, cz + 0.5)
+    }
+  }
+  function canalV(c, z0, z1, drawRoad) {
+    for (let z = Math.max(4, z0); z <= Math.min(GRID - 2, z1); z++) {
+      if (nearRoad(z)) continue
+      water(c, z)
+    }
+    for (const R of ROADS) {
+      if (R < z0 || R > z1) continue
+      if (R === drawRoad) makeDrawbridge(c, R, 'x')
+      else fixedBridgeX(c, R)
+    }
+  }
+  function canalH(c, x0, x1, drawRoad) {
+    for (let x = Math.max(1, x0); x <= Math.min(GRID - 2, x1); x++) {
+      if (nearRoad(x)) continue
+      water(x, c)
+    }
+    for (const R of ROADS) {
+      if (R < x0 || R > x1) continue
+      if (R === drawRoad) makeDrawbridge(c, R, 'z')
+      else fixedBridgeZ(c, R)
+    }
+  }
+  function ringArc(cx, cz, r) {
+    for (let x = Math.max(1, Math.floor(cx - r - 1)); x <= Math.min(GRID - 2, Math.ceil(cx + r + 1)); x++) {
+      for (let z = Math.max(4, Math.floor(cz)); z <= Math.min(GRID - 2, Math.ceil(cz + r + 1)); z++) {
+        const d = Math.hypot(x + 0.5 - cx, z + 0.5 - cz)
+        if (Math.abs(d - r) >= 0.55) continue
+        if (distAxis[x] <= 1 || distAxis[z] <= 1) deckCell(x, z)
+        else water(x, z)
+      }
+    }
+  }
+  function rectRing(x0, z0, x1, z1) {
+    for (let x = x0; x <= x1; x++)
+      for (const z of [z0, z1]) {
+        if (distAxis[x] <= 1 || distAxis[z] <= 1) deckCell(x, z)
+        else water(x, z)
+      }
+    for (let z = z0; z <= z1; z++)
+      for (const x of [x0, x1]) {
+        if (distAxis[x] <= 1 || distAxis[z] <= 1) deckCell(x, z)
+        else water(x, z)
+      }
+  }
+  function bigPond(cx, cz, rx, rz) {
+    for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++)
+      for (let z = Math.floor(cz - rz); z <= Math.ceil(cz + rz); z++) {
+        const nx = (x + 0.5 - cx) / rx
+        const nz = (z + 0.5 - cz) / rz
+        if (nx * nx + nz * nz <= 1 && distAxis[x] > 1 && distAxis[z] > 1) water(x, z)
+      }
+  }
+  function bandWater(side, w) {
+    if (side === 'north') for (let z = 0; z < w; z++) for (let x = 0; x < GRID; x++) water(x, z)
+    if (side === 'west') for (let x = 0; x < w; x++) for (let z = 0; z < GRID; z++) water(x, z)
   }
 
-  // Grachten (watertjes) met bruggen waar de wegen kruisen
-  const canalsX = []
-  for (let x = 21; x < GRID - 6; x += 2 * STEP) if (!nearRoad(x)) canalsX.push(x)
-  const canalsZ = []
-  for (let z = 35; z < GRID - 6; z += 2 * STEP) if (!nearRoad(z)) canalsZ.push(z)
-  for (const c of canalsX) {
-    for (let z = 1; z < GRID - 1; z++) {
-      if (nearRoad(z)) continue
-      box('#3aa0d8', 1, 0.12, 1, c + 0.5, 0, z + 0.5)
-      solids.add(c + ',' + z)
-    }
-    for (const R of ROADS) {
-      box('#9a6a3e', 1.3, 0.08, 3.2, c + 0.5, 0.06, R + 0.5)
-      box('#6f4a2e', 0.12, 0.35, 3.2, c - 0.05, 0.12, R + 0.5)
-      box('#6f4a2e', 0.12, 0.35, 3.2, c + 1.05, 0.12, R + 0.5)
-    }
+  // De plattegrond per stad - herkenbaar van de echte kaart
+  if (city.key === 'haarlem') {
+    riverV((z) => GRID * 0.72 + Math.sin(z * 0.05) * 5, 4, [ROADS[3], ROADS[7]]) // het Spaarne
+    canalV(Math.round(GRID * 0.56), Math.round(GRID * 0.1), Math.round(GRID * 0.6), ROADS[2]) // gracht in het centrum
+  } else if (city.key === 'uithoorn') {
+    riverH((x) => GRID * 0.82 + Math.sin(x * 0.04) * 5, 4, [ROADS[4], ROADS[8]]) // de Amstel
+    canalV(Math.round(GRID * 0.3), Math.round(GRID * 0.35), Math.round(GRID * 0.8), ROADS[5])
+  } else if (city.key === 'amsterdam') {
+    bandWater('north', 8) // het IJ
+    const rcx = GRID * 0.49
+    const rcz = GRID * 0.27
+    for (const r of [GRID * 0.19, GRID * 0.25, GRID * 0.31]) ringArc(rcx, rcz, r) // de grachtengordel
+    canalV(Math.round(GRID * 0.66), Math.round(rcz), Math.round(GRID * 0.85), ROADS[6])
+  } else if (city.key === 'rotterdam') {
+    riverH((x) => GRID * 0.63 + Math.sin(x * 0.025) * 6, 9, [ROADS[3], ROADS[6]]) // de Nieuwe Maas
+    canalV(Math.round(GRID * 0.72), Math.round(GRID * 0.76), GRID - 6, ROADS[8]) // de Oude Haven
+  } else if (city.key === 'utrecht') {
+    rectRing(Math.round(GRID * 0.3), Math.round(GRID * 0.3), Math.round(GRID * 0.66), Math.round(GRID * 0.66)) // de singel
+    canalV(Math.round(GRID * 0.47), Math.round(GRID * 0.3), Math.round(GRID * 0.66), ROADS[5]) // de Oudegracht
+  } else if (city.key === 'denhaag') {
+    bandWater('west', 4) // de Noordzee
+    box('#f0dca0', 3, 0.06, GRID, 5.5, 0, GRID / 2) // het strand
+    reserveRect(4, 0, 3, GRID)
+    bigPond(GRID * 0.49, GRID * 0.43, 7, 3.5) // de Hofvijver
+    canalH(Math.round(GRID * 0.78), Math.round(GRID * 0.3), Math.round(GRID * 0.85), ROADS[6])
   }
-  for (const c of canalsZ) {
-    for (let x = 1; x < GRID - 1; x++) {
-      if (nearRoad(x)) continue
-      box('#3aa0d8', 1, 0.12, 1, x + 0.5, 0, c + 0.5)
-      solids.add(x + ',' + c)
-    }
-    for (const R of ROADS) {
-      box('#9a6a3e', 3.2, 0.08, 1.3, R + 0.5, 0.06, c + 0.5)
-      box('#6f4a2e', 3.2, 0.35, 0.12, R + 0.5, 0.12, c - 0.05)
-      box('#6f4a2e', 3.2, 0.35, 0.12, R + 0.5, 0.12, c + 1.05)
-    }
+
+  // ---- Spoorlijn met rijdende trein (in Amsterdam net onder het IJ, zoals echt) ----
+  const trackRow = city.key === 'amsterdam' ? 10 : 1
+  const trackMid = trackRow + 1.5
+  for (let x = 0; x < GRID; x++) {
+    solids.add(x + ',' + trackRow)
+    solids.add(x + ',' + (trackRow + 1))
+    solids.add(x + ',' + (trackRow + 2))
   }
+  box('#8a8478', GRID, 0.05, 1.6, GRID / 2, 0, trackMid) // grindbed
+  for (let x = 1; x < GRID - 1; x += 1) box('#6f4a2e', 0.5, 0.05, 0.95, x + 0.5, 0.02, trackMid) // bielzen
+  box('#4a4a50', GRID, 0.06, 0.09, GRID / 2, 0.06, trackMid - 0.32) // rails
+  box('#4a4a50', GRID, 0.06, 0.09, GRID / 2, 0.06, trackMid + 0.32)
+  function makeWagon(len, isLoco) {
+    const w = new THREE.Group()
+    const body = new THREE.Mesh(new THREE.BoxGeometry(len, 0.8, 0.95), matOf('#ffc917')) // NS-geel
+    body.position.y = 0.62
+    body.castShadow = true
+    const band = new THREE.Mesh(new THREE.BoxGeometry(len * 0.99, 0.3, 0.97), matOf('#003082')) // NS-blauw
+    band.position.y = 0.32
+    w.add(body, band)
+    for (let i = -1; i <= 1; i++) {
+      const win = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.28, 0.97), matOf('#bfe4ff'))
+      win.position.set((i * len) / 3.4, 0.76, 0)
+      w.add(win)
+    }
+    if (isLoco) {
+      const nose = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.62, 0.9), matOf('#003082'))
+      nose.position.set(len / 2 + 0.2, 0.5, 0)
+      w.add(nose)
+    }
+    return w
+  }
+  const train = new THREE.Group()
+  const loco = makeWagon(2.6, true)
+  const wag1 = makeWagon(2.3, false)
+  const wag2 = makeWagon(2.3, false)
+  wag1.position.x = -2.7
+  wag2.position.x = -5.2
+  train.add(loco, wag1, wag2)
+  train.position.set(GRID / 2, 0.1, trackMid)
+  group.add(train)
+  let trainPos = GRID / 2
+  let trainDir = 1
 
   // Straten + stoepen + wegmarkering
   for (const R of ROADS) {
@@ -376,6 +576,7 @@ export function buildCity(group, GRID, city) {
   // Bouwstenen
   const palette = city.palette
   const greens = ['#4f9e35', '#3f8a2e', '#5aa83f', '#469a36']
+  const roofCols = ['#8a4a3a', '#5a5a5a', '#7a3f24', '#3f4e5e', '#6e3b4a']
   function house(x, z) {
     if (x < 1 || z < 1 || x >= GRID - 1 || z >= GRID - 1) return
     const k = x + ',' + z
@@ -383,18 +584,47 @@ export function buildCity(group, GRID, city) {
     solids.add(k)
     const col = palette[(rnd() * palette.length) | 0]
     const tall = rnd() < 0.18
-    const h = tall ? 3.2 + rnd() * 3.6 : 1.4 + rnd() * 1.3
+    const h = tall ? 3.2 + rnd() * 3.6 : 1.5 + rnd() * 1.3
     box(col, 0.92, h, 0.92, x + 0.5, 0, z + 0.5)
-    const rows = Math.max(1, Math.min(6, Math.floor(h / 1.0)))
-    for (let r = 0; r < rows; r++) box('#bfe4ff', 0.34, 0.32, 0.05, x + 0.5, 0.7 + r * 0.95, z + 0.03)
+    box('#3c3744', 0.96, 0.22, 0.96, x + 0.5, 0, z + 0.5) // plint
+    // ramen: 1 of 2 kolommen, met witte kozijnen
+    const twoCols = rnd() < 0.55
+    const rows = Math.max(1, Math.min(6, Math.floor(h / 0.95)))
+    const colsX = twoCols ? [-0.21, 0.21] : [0]
+    for (let r = 0; r < rows; r++) {
+      const wy = 0.78 + r * 0.9
+      if (wy > h - 0.35) break
+      for (const wx of colsX) {
+        box('#f4f1e8', twoCols ? 0.3 : 0.42, 0.4, 0.03, x + 0.5 + wx, wy - 0.05, z + 0.025) // kozijn
+        box('#bfe4ff', twoCols ? 0.22 : 0.32, 0.3, 0.04, x + 0.5 + wx, wy, z + 0.03) // glas
+      }
+    }
+    // deur met kozijn en een stoepje
+    const doorCol = ['#3a2a1c', '#7a1f2b', '#1f4d3a', '#2b3a6e'][(rnd() * 4) | 0]
+    box('#f4f1e8', 0.34, 0.76, 0.03, x + 0.5, 0, z + 0.035)
+    box(doorCol, 0.26, 0.68, 0.05, x + 0.5, 0, z + 0.04)
+    box('#9aa0a8', 0.4, 0.07, 0.18, x + 0.5, 0, z - 0.06)
+    // dak: vijf varianten (plat, trapgevel, zadeldak, puntdak, klokgevel)
+    const roofCol = roofCols[(rnd() * roofCols.length) | 0]
     const st = rnd()
-    if (tall || st > 0.66) box('#5a5a5a', 0.96, 0.16, 0.96, x + 0.5, h, z + 0.5)
-    else if (st > 0.33) {
-      box(col, 0.92, 0.35, 0.5, x + 0.5, h, z + 0.2)
-      box(col, 0.6, 0.35, 0.5, x + 0.5, h + 0.35, z + 0.2)
-      box(col, 0.3, 0.35, 0.5, x + 0.5, h + 0.7, z + 0.2)
-    } else cone('#7a3f24', 0.78, 0.7, x + 0.5, h, z + 0.5, 4)
-    box('#3a2a1c', 0.26, 0.7, 0.05, x + 0.5, 0, z + 0.04)
+    if (tall || st > 0.78) {
+      box('#5a5a5a', 0.98, 0.14, 0.98, x + 0.5, h, z + 0.5)
+      box('#6e6e72', 0.6, 0.1, 0.6, x + 0.5, h + 0.14, z + 0.5)
+    } else if (st > 0.56) {
+      box(col, 0.92, 0.32, 0.5, x + 0.5, h, z + 0.2)
+      box(col, 0.6, 0.32, 0.5, x + 0.5, h + 0.32, z + 0.2)
+      box(col, 0.3, 0.32, 0.5, x + 0.5, h + 0.64, z + 0.2)
+    } else if (st > 0.36) {
+      box(roofCol, 0.98, 0.3, 0.78, x + 0.5, h, z + 0.5)
+      box(roofCol, 0.98, 0.28, 0.4, x + 0.5, h + 0.3, z + 0.5)
+    } else if (st > 0.16) {
+      cone(roofCol, 0.78, 0.8, x + 0.5, h, z + 0.5, 4)
+    } else {
+      box(col, 0.7, 0.3, 0.5, x + 0.5, h, z + 0.2)
+      box(col, 0.42, 0.28, 0.5, x + 0.5, h + 0.3, z + 0.2)
+      box(col, 0.2, 0.24, 0.5, x + 0.5, h + 0.58, z + 0.2)
+    }
+    if (rnd() < 0.3) box('#7a4538', 0.16, 0.5, 0.16, x + 0.18, h - 0.05, z + 0.7) // schoorsteen
   }
   function tree(x, z) {
     const k = x + ',' + z
@@ -496,6 +726,8 @@ export function buildCity(group, GRID, city) {
     solids,
     landmarks,
     start: city.start || START,
+    drawbridges,
+    train,
     update(dt) {
       for (const s of animated) s.rotation.x += dt * 0.7
       for (const car of cars) {
@@ -515,6 +747,55 @@ export function buildCity(group, GRID, city) {
           car.mesh.rotation.y = car.dir > 0 ? Math.PI / 2 : -Math.PI / 2
         }
       }
+      // ophaalbruggen: dicht -> open (weg geblokkeerd) -> bootje vaart door -> dicht
+      const T1 = 9
+      const T2 = 2.2
+      const T3 = 6
+      const T4 = 2.2
+      const TT = T1 + T2 + T3 + T4
+      for (const b of drawbridges) {
+        b.t = (b.t + dt) % TT
+        let a = 0
+        if (b.t < T1) a = 0
+        else if (b.t < T1 + T2) a = (b.t - T1) / T2
+        else if (b.t < T1 + T2 + T3) a = 1
+        else a = 1 - (b.t - T1 - T2 - T3) / T4
+        const ang = a * 1.15
+        if (b.axis === 'x') {
+          b.deck.rotation.z = ang
+          b.arm.rotation.z = ang * 0.92
+        } else {
+          b.deck.rotation.x = -ang
+          b.arm.rotation.x = -ang * 0.92
+        }
+        const blocked = a > 0.03
+        if (blocked !== b.blocked) {
+          b.blocked = blocked
+          for (const k of b.cells) {
+            if (blocked) solids.add(k)
+            else solids.delete(k)
+          }
+        }
+        const openStart = T1 + T2
+        if (b.t >= openStart - 0.4 && b.t <= openStart + T3 + 0.4) {
+          const p = Math.min(1, Math.max(0, (b.t - openStart + 0.4) / (T3 + 0.8)))
+          const off = -8 + 16 * p
+          b.boat.visible = true
+          if (b.axis === 'x') b.boat.position.set(b.c + 0.5, 0.02, b.R + 0.5 + off)
+          else b.boat.position.set(b.R + 0.5 + off, 0.02, b.c + 0.5)
+        } else b.boat.visible = false
+      }
+      // trein rijdt heen en weer over het spoor
+      trainPos += trainDir * 7 * dt
+      if (trainPos > GRID - 6) {
+        trainPos = GRID - 6
+        trainDir = -1
+      } else if (trainPos < 6) {
+        trainPos = 6
+        trainDir = 1
+      }
+      train.position.x = trainPos
+      train.scale.x = trainDir
     },
   }
 }
@@ -528,9 +809,9 @@ export const CITIES = [
     name: 'Haarlem',
     palette: HOUSE_NL,
     start: START,
-    waters: [{ x: 36, z: 0, w: 4, d: 40 }],
     landmarks: [
       { name: 'Grote Kerk', type: 'church', x: 19.5, z: 19.5, opts: { tower: 7, spire: '#3f7d6e' }, labelY: 11.5, labelScale: 1.2, fact: 'De Grote Kerk staat op de Grote Markt en heeft een wereldberoemd orgel. Mozart speelde erop toen hij nog maar 10 jaar oud was!' },
+      { name: 'Het Spaarne', type: 'label', x: 28, z: 24, labelY: 1.8, fact: 'Het Spaarne is de rivier van Haarlem. Hij slingert dwars door de stad, met bruggen eroverheen.' },
       { name: 'Molen De Adriaan', type: 'windmill', x: 33, z: 9, labelY: 7.2, fact: 'Molen De Adriaan staat aan het Spaarne. Vroeger werd er onder andere tabak en verf gemaakt.' },
       { name: 'Amsterdamse Poort', type: 'gate', x: 6.5, z: 12, labelY: 6.4, fact: 'De Amsterdamse Poort is meer dan 600 jaar oud. Vroeger ging je hier de stad Haarlem binnen.' },
       { name: 'Station Haarlem', type: 'station', x: 19.5, z: 6, labelY: 5.6, fact: 'Vanaf Haarlem reed in 1839 de allereerste trein van Nederland!' },
@@ -543,7 +824,6 @@ export const CITIES = [
     name: 'Uithoorn',
     palette: HOUSE_NL,
     start: START,
-    waters: [{ x: 0, z: 36, w: 40, d: 4 }],
     landmarks: [
       { name: 'Thamerkerk', type: 'church', x: 19.5, z: 30, opts: { tower: 6, spire: '#7a3f24' }, labelY: 10.5, fact: 'De Thamerkerk is een oud kerkje aan de Amstel. Het staat er al honderden jaren.' },
       { name: 'De Amstel', type: 'label', x: 28, z: 33, labelY: 1.6, fact: 'De Amstel is de rivier die van Uithoorn helemaal naar Amsterdam stroomt.' },
@@ -557,13 +837,12 @@ export const CITIES = [
     name: 'Amsterdam',
     palette: ['#7a4a32', '#8a5a3a', '#6a4028', '#9a6a44', '#5a3a26', '#a87a52'],
     start: START,
-    waters: [{ x: 36, z: 0, w: 4, d: 40 }],
     landmarks: [
       { name: 'Koninklijk Paleis', type: 'palace', x: 19.5, z: 19.5, opts: { w: 6, color: '#cdbb94', cupola: true }, labelY: 6.0, fact: 'Op de Dam staat het Koninklijk Paleis. Soms werkt of woont de koning hier.' },
       { name: 'Rijksmuseum', type: 'museum', x: 19.5, z: 31, opts: { color: '#b06a3a' }, labelY: 6.0, fact: 'In het Rijksmuseum hangt het beroemde schilderij De Nachtwacht van Rembrandt.' },
-      { name: 'Centraal Station', type: 'station', x: 19.5, z: 6, labelY: 5.6, fact: 'Amsterdam Centraal is een groot, prachtig station waar heel veel treinen komen.' },
+      { name: 'Centraal Station', type: 'station', x: 19.5, z: 4.2, labelY: 5.6, fact: 'Amsterdam Centraal is een groot, prachtig station aan het IJ. Achter het station vaart de pont over het water.' },
       { name: 'Westertoren', type: 'tower', x: 6.5, z: 19.5, opts: { h: 11, spire: '#2f6fae' }, labelY: 14.5, fact: 'De Westertoren is de hoogste kerktoren van Amsterdam, met een blauwe kroon bovenop.' },
-      { name: 'Grachten', type: 'canal', x: 30, z: 24, labelY: 2.0, fact: 'Amsterdam heeft honderden grachten met bruggen. Je kunt er met een bootje doorheen varen.' },
+      { name: 'Grachtengordel', type: 'label', x: 22.5, z: 17.5, labelY: 2.0, fact: 'De grachtengordel zijn drie halve ringen van grachten om het centrum. Ze staan op de werelderfgoedlijst!' },
     ],
   },
   {
@@ -571,13 +850,12 @@ export const CITIES = [
     name: 'Rotterdam',
     palette: ['#8a9098', '#9aa0a8', '#7a8088', '#aab0b8', '#6a7078', '#b8bec6'],
     start: START,
-    waters: [{ x: 0, z: 36, w: 40, d: 4 }],
     landmarks: [
-      { name: 'Erasmusbrug', type: 'bridge', x: 19.5, z: 33, labelY: 8.5, fact: 'De Erasmusbrug heet ook "De Zwaan", omdat hij op een witte zwaan lijkt.' },
+      { name: 'Erasmusbrug', type: 'bridge', x: 14, z: 26.7, labelY: 8.5, fact: 'De Erasmusbrug over de Nieuwe Maas heet ook "De Zwaan", omdat hij op een witte zwaan lijkt.' },
       { name: 'Euromast', type: 'tower', x: 6.5, z: 19.5, opts: { h: 13, style: 'modern' }, labelY: 16.0, fact: 'De Euromast is een hoge toren. Vanaf boven zie je de hele stad en de grote haven.' },
       { name: 'Markthal', type: 'archhall', x: 31, z: 19.5, labelY: 7.0, fact: 'De Markthal is een grote hal vol eten, met een reuzenschildering van fruit op het plafond.' },
       { name: 'Kubuswoningen', type: 'cubes', x: 19.5, z: 12, opts: { color: '#e8c54a' }, labelY: 5.5, fact: 'De kubuswoningen zijn huizen die schuin op hun punt staan, net dobbelstenen.' },
-      { name: 'Het Witte Huis', type: 'tower', x: 31, z: 30, opts: { h: 9, spire: '#eeeeee' }, labelY: 12.5, fact: 'Het Witte Huis in Rotterdam was lang geleden het hoogste kantoor van heel Europa.' },
+      { name: 'Het Witte Huis', type: 'tower', x: 31, z: 21, opts: { h: 9, spire: '#eeeeee' }, labelY: 12.5, fact: 'Het Witte Huis aan de noordkant van de Maas was lang geleden het hoogste kantoor van heel Europa.' },
     ],
   },
   {
@@ -585,12 +863,11 @@ export const CITIES = [
     name: 'Utrecht',
     palette: HOUSE_NL,
     start: START,
-    waters: [{ x: 36, z: 0, w: 4, d: 40 }],
     landmarks: [
-      { name: 'Domtoren', type: 'tower', x: 19.5, z: 19.5, opts: { h: 15, spire: '#7a6a55' }, labelY: 19.0, labelScale: 1.2, fact: 'De Domtoren is de hoogste kerktoren van Nederland: meer dan 112 meter hoog!' },
+      { name: 'Domtoren', type: 'tower', x: 19.5, z: 19.5, opts: { h: 15, spire: '#7a6a55' }, labelY: 19.0, labelScale: 1.2, fact: 'De Domtoren staat vlak naast de Oudegracht en is de hoogste kerktoren van Nederland: meer dan 112 meter!' },
       { name: 'Nijntje Museum', type: 'museum', x: 9, z: 31, opts: { color: '#ff8c42', spire: '#e63946' }, labelY: 6.0, fact: 'In Utrecht is een museum over Nijntje, het tekenkonijntje van Dick Bruna.' },
       { name: 'Centraal Station', type: 'station', x: 19.5, z: 6, labelY: 5.6, fact: 'Utrecht Centraal is het drukste treinstation van Nederland, midden in het land.' },
-      { name: 'De Werven', type: 'canal', x: 30, z: 24, labelY: 2.0, fact: 'De grachten van Utrecht hebben werven: lage kades bij het water met oude kelders.' },
+      { name: 'De Oudegracht', type: 'label', x: 18.2, z: 22, labelY: 2.0, fact: 'De Oudegracht loopt dwars door het centrum, binnen de singel. Bij het water liggen werven met oude kelders.' },
     ],
   },
   {
@@ -598,12 +875,12 @@ export const CITIES = [
     name: 'Den Haag',
     palette: HOUSE_NL,
     start: START,
-    waters: [],
     landmarks: [
-      { name: 'Binnenhof', type: 'palace', x: 19.5, z: 19.5, opts: { w: 6, color: '#b89a6a', towers: true }, labelY: 6.2, fact: 'In het Binnenhof maken de regering en de Tweede Kamer de regels voor heel Nederland.' },
+      { name: 'Binnenhof', type: 'palace', x: 19.5, z: 19.5, opts: { w: 6, color: '#b89a6a', towers: true }, labelY: 6.2, fact: 'In het Binnenhof maken de regering en de Tweede Kamer de regels voor heel Nederland. Ervoor ligt de Hofvijver.' },
       { name: 'Vredespaleis', type: 'palace', x: 9, z: 12, opts: { w: 5, color: '#a8552e', cupola: true, spire: '#7a3f24' }, labelY: 6.2, fact: 'In het Vredespaleis praten landen met elkaar om ruzie en oorlog te voorkomen.' },
       { name: 'Madurodam', type: 'miniature', x: 30, z: 12, labelY: 3.0, fact: 'Madurodam is een minipark met heel Nederland in het klein, waar je doorheen kunt lopen.' },
-      { name: 'Scheveningen', type: 'beach', x: 19.5, z: 31, labelY: 3.5, fact: 'Scheveningen is het strand van Den Haag, met een lange pier en de zee.' },
+      { name: 'Scheveningen', type: 'label', x: 2.2, z: 15, labelY: 3.0, fact: 'Scheveningen is het strand van Den Haag, aan de Noordzee. Je kunt er zwemmen en zandkastelen bouwen.' },
+      { name: 'De Hofvijver', type: 'label', x: 19.6, z: 15.8, labelY: 1.8, fact: 'De Hofvijver is de vijver naast het Binnenhof. Hij ligt er al honderden jaren!' },
     ],
   },
 ]

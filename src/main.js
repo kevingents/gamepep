@@ -5,6 +5,7 @@ import { buildCity, CITIES } from './city.js'
 import { makeCharacter, loadCfg, saveCfg, PARTS } from './character.js'
 import { refresh, cachedTop, cachedTopScore, qualifies, submit } from './scores.js'
 import { joinRoom, leaveRoom, sendState, sendFx, sendTag, makeCode, inRoom } from './multiplayer.js'
+import { createSky } from './sky.js'
 
 // =====================================================================
 //  Diamant Haarlem - een 3D arcade-game in Minecraft-stijl.
@@ -120,7 +121,8 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
 renderer.shadowMap.enabled = true
 renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
-scene.add(new THREE.AmbientLight(0xbfd4ff, 0.62))
+const amb = new THREE.AmbientLight(0xbfd4ff, 0.62)
+scene.add(amb)
 const sun = new THREE.DirectionalLight(0xfff2dc, 1.0)
 sun.position.set(GRID / 2 + 30, 60, GRID / 2 + 18)
 sun.castShadow = true
@@ -146,6 +148,15 @@ const ground = new THREE.Mesh(new THREE.BoxGeometry(GRID, 1, GRID), groundMats)
 ground.position.set(GRID / 2, -0.5, GRID / 2)
 ground.receiveShadow = true
 scene.add(ground)
+
+// lucht en weer: wolken, vogels, vliegtuig, af en toe regen
+const sky = createSky(scene, GRID, sun, amb)
+let isRaining = false
+sky.onRain = (r) => {
+  isRaining = r
+  if (r && sfx.enabled) sfx.rainStart()
+  if (!r) sfx.rainStop()
+}
 
 // ---------- Haarlem ----------
 const worldGroup = new THREE.Group()
@@ -253,10 +264,12 @@ let faceX = 0
 let faceZ = -1
 let invuln = 0
 let pendingScore = 0
-let mode = 'diamond' // 'diamond' | 'tag' | 'hide'
+let mode = 'diamond' // 'diamond' | 'tag' | 'hide' | 'mp'
+let tagLimit = TAG_TIME // gekozen tikkertje-tijd (0 = zonder tijd)
 let diamonds = []
 let creepers = []
 let npcs = []
+let secrets = [] // geheime plekken: verstopte schatten + gouden diamant
 let totalDiamonds = 0
 let totalKids = 0
 let timeLeft = 0
@@ -328,6 +341,58 @@ function clearRound() {
   creepers = []
   npcs = []
   powerups = []
+  secrets = []
+}
+
+// geheime plekken: een verstopte schatkist of gouden diamant, ver weg
+function makeChest() {
+  const g = new THREE.Group()
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.32, 0.38), new THREE.MeshLambertMaterial({ color: 0x6e4626 }))
+  body.position.y = 0.16
+  const lid = new THREE.Mesh(new THREE.BoxGeometry(0.57, 0.14, 0.4), new THREE.MeshLambertMaterial({ color: 0x8a5a33 }))
+  lid.position.y = 0.39
+  const lock = new THREE.Mesh(
+    new THREE.BoxGeometry(0.12, 0.12, 0.05),
+    new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0x7a5a00, roughness: 0.3 })
+  )
+  lock.position.set(0, 0.28, 0.21)
+  g.add(body, lid, lock)
+  g.traverse((o) => {
+    if (o.isMesh) o.castShadow = true
+  })
+  return g
+}
+function makeGoldDiamond() {
+  const m = new THREE.Mesh(
+    new THREE.OctahedronGeometry(0.34),
+    new THREE.MeshStandardMaterial({ color: 0xffd24a, emissive: 0x8a6a00, metalness: 0.5, roughness: 0.2 })
+  )
+  m.scale.set(1, 1.4, 1)
+  m.castShadow = true
+  return m
+}
+function spawnSecrets(taken) {
+  const SECRETS = [
+    { kind: 'chest', points: 300, label: 'Geheime schat gevonden! +300' },
+    { kind: 'chest', points: 300, label: 'Geheime schat gevonden! +300' },
+    { kind: 'gold', points: 500, label: 'Gouden diamant! +500' },
+  ]
+  for (const s of SECRETS) {
+    let c = null
+    for (let tries = 0; tries < 30; tries++) {
+      const cand = hiddenCell(taken)
+      if (!cand) break
+      c = cand
+      const ddx = cand.x - START.x
+      const ddz = cand.z - START.z
+      if (ddx * ddx + ddz * ddz > GRID * 0.22 * (GRID * 0.22)) break // ver genoeg weg
+    }
+    if (!c) continue
+    const mesh = s.kind === 'chest' ? makeChest() : makeGoldDiamond()
+    mesh.position.set(c.x, s.kind === 'gold' ? 0.8 : 0, c.z)
+    roundGroup.add(mesh)
+    secrets.push({ ...s, mesh, x: c.x, z: c.z, taken: false, spin: s.kind === 'gold' })
+  }
 }
 function freeCell(taken) {
   for (let tries = 0; tries < 300; tries++) {
@@ -385,9 +450,10 @@ function buildRound() {
       roundGroup.add(m)
       npcs.push({ mesh: m, x: c.x, z: c.z, heading: Math.random() * 6.28, timer: 0, phase: 0, caught: false })
     }
-    timeLeft = mode === 'tag' ? TAG_TIME : HIDE_TIME
+    timeLeft = mode === 'tag' ? tagLimit : Math.max(50, HIDE_TIME - 8 * (round - 1))
   }
   for (let i = 0; i < 6; i++) spawnPowerup(taken)
+  spawnSecrets(taken)
   steveX = START.x
   steveZ = START.z
   player.position.set(steveX, 0, steveZ)
@@ -465,8 +531,9 @@ function updateCreepers(dt) {
       c.heading = Math.random() < 0.35 ? Math.atan2(steveZ - c.z, steveX - c.x) : Math.random() * 6.28
       c.timer = 1 + Math.random() * 1.6
     }
-    const dx = Math.cos(c.heading) * CREEPER_SPEED * dt
-    const dz = Math.sin(c.heading) * CREEPER_SPEED * dt
+    const spd = CREEPER_SPEED * Math.min(2, 1 + 0.12 * (round - 1)) // elke ronde sneller
+    const dx = Math.cos(c.heading) * spd * dt
+    const dz = Math.sin(c.heading) * spd * dt
     const nx = clamp(c.x + dx, 0.6, GRID - 0.6)
     const nz = clamp(c.z + dz, 0.6, GRID - 0.6)
     if (!cellSolid(nx, nz)) {
@@ -499,7 +566,7 @@ function updateNPCs(dt) {
         mvx = Math.cos(n.heading)
         mvz = Math.sin(n.heading)
       }
-      const sp = STEVE_SPEED * 0.62 * dt
+      const sp = STEVE_SPEED * Math.min(0.95, 0.6 + 0.05 * (round - 1)) * dt // elke ronde snellere kinderen
       const nx = clamp(n.x + mvx * sp, 0.6, GRID - 0.6)
       if (!cellSolid(nx, n.z)) n.x = nx
       const nz = clamp(n.z + mvz * sp, 0.6, GRID - 0.6)
@@ -519,6 +586,19 @@ function updateNPCs(dt) {
   }
 }
 function checkCollisions() {
+  for (const s of secrets) {
+    if (s.taken) continue
+    const sdx = s.x - steveX
+    const sdz = s.z - steveZ
+    if (sdx * sdx + sdz * sdz < 0.6 * 0.6) {
+      s.taken = true
+      s.mesh.visible = false
+      score += s.points
+      sfx.win()
+      showToast(s.label)
+      updateHud()
+    }
+  }
   if (mode === 'diamond') {
     for (const d of diamonds) {
       if (d.collected) continue
@@ -982,8 +1062,9 @@ function fmtTime(t) {
 }
 function updateHud() {
   const isD = mode === 'diamond'
+  const timed = mode === 'hide' || (mode === 'tag' && tagLimit > 0)
   hud.hearts.style.display = isD ? 'flex' : 'none'
-  hud.timer.style.display = isD ? 'none' : 'flex'
+  hud.timer.style.display = timed ? 'flex' : 'none'
   if (isD) {
     let h = ''
     for (let i = 0; i < MAX_HEARTS; i++) h += heartIcon(i < lives)
@@ -993,7 +1074,7 @@ function updateHud() {
   } else {
     const got = npcs.filter((n) => n.caught).length
     hud.diamonds.innerHTML = kidIcon + '<span>' + got + '/' + totalKids + '</span>'
-    hud.timer.textContent = fmtTime(timeLeft)
+    if (timed) hud.timer.textContent = fmtTime(timeLeft)
   }
   hud.score.textContent = String(score).padStart(5, '0')
   hud.level.textContent = MODE_LABEL[mode] + ' R' + round
@@ -1007,6 +1088,18 @@ function hideAllScreens() {
   $('cityscreen').classList.remove('show')
   $('lobby').classList.remove('show')
   $('settings').classList.remove('show')
+  $('tagscreen').classList.remove('show')
+}
+function showTagPicker() {
+  resumeAudio()
+  status = 'tagpick'
+  setSceneVisible(true)
+  setChrome(false)
+  player.visible = false
+  setOverviewCam()
+  hideAllScreens()
+  hideFact()
+  $('tagscreen').classList.add('show')
 }
 function setSceneVisible(v) {
   ground.visible = v
@@ -1066,8 +1159,9 @@ function buildCityButtons() {
     wrap.appendChild(b)
   })
 }
-function startGame(m) {
+function startGame(m, tagSeconds) {
   mode = m || 'diamond'
+  if (m === 'tag') tagLimit = tagSeconds === undefined ? TAG_TIME : tagSeconds
   if (inRoom()) {
     leaveRoom()
     clearRemotes()
@@ -1292,8 +1386,13 @@ function updateMuteBtn() {
 }
 muteBtn.addEventListener('click', () => {
   sfx.enabled = !sfx.enabled
-  if (!sfx.enabled) sfx.musicStop()
-  else if (musicOn && status === 'playing') sfx.musicStart()
+  if (!sfx.enabled) {
+    sfx.musicStop()
+    sfx.rainStop()
+  } else {
+    if (musicOn && status === 'playing') sfx.musicStart()
+    if (isRaining) sfx.rainStart()
+  }
   updateMuteBtn()
   saveSettings()
 })
@@ -1350,7 +1449,12 @@ canvas.addEventListener('pointercancel', endTouch)
 
 // ---------- Knoppen ----------
 $('btnDiamond').addEventListener('click', () => startGame('diamond'))
-$('btnTag').addEventListener('click', () => startGame('tag'))
+$('btnTag').addEventListener('click', showTagPicker)
+$('btnTagNoTime').addEventListener('click', () => startGame('tag', 0))
+$('btnTag1').addEventListener('click', () => startGame('tag', 60))
+$('btnTag2').addEventListener('click', () => startGame('tag', 120))
+$('btnTag3').addEventListener('click', () => startGame('tag', 180))
+$('btnTagBack').addEventListener('click', showIntro)
 $('btnHide').addEventListener('click', () => startGame('hide'))
 $('btnCreator').addEventListener('click', showCreator)
 $('btnCity').addEventListener('click', showCityPicker)
@@ -1413,8 +1517,13 @@ $('btnToggleMusic').addEventListener('click', () => {
 })
 $('btnToggleSound').addEventListener('click', () => {
   sfx.enabled = !sfx.enabled
-  if (!sfx.enabled) sfx.musicStop()
-  else if (musicOn && status === 'playing') sfx.musicStart()
+  if (!sfx.enabled) {
+    sfx.musicStop()
+    sfx.rainStop()
+  } else {
+    if (musicOn && status === 'playing') sfx.musicStart()
+    if (isRaining) sfx.rainStart()
+  }
   updateMuteBtn()
   saveSettings()
   updateSettingsUI()
@@ -1438,7 +1547,8 @@ let last = performance.now()
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000)
   last = now
-  world.update(dt) // molenwieken + auto's draaien altijd
+  world.update(dt) // molenwieken, auto's, bruggen en trein draaien altijd
+  sky.update(dt, camera.position.x, camera.position.z)
   if (status === 'playing') {
     updatePlayer(dt)
     updateSunShadow(steveX, steveZ)
@@ -1458,7 +1568,7 @@ function frame(now) {
     if (soundCool > 0) soundCool -= dt
     updatePowerups(dt, now)
     updateActionButtons()
-    if (status === 'playing' && (mode === 'tag' || mode === 'hide')) {
+    if (status === 'playing' && (mode === 'hide' || (mode === 'tag' && tagLimit > 0))) {
       timeLeft -= dt
       hud.timer.textContent = fmtTime(timeLeft)
       if (timeLeft <= 0) {
@@ -1471,6 +1581,11 @@ function frame(now) {
         if (d.collected) continue
         d.mesh.rotation.y += dt * 2.2
         d.mesh.position.y = d.baseY + Math.sin(now * 0.003 + d.phase) * 0.15
+      }
+      for (const s of secrets) {
+        if (s.taken || !s.spin) continue
+        s.mesh.rotation.y += dt * 2.4
+        s.mesh.position.y = 0.8 + Math.sin(now * 0.003) * 0.15
       }
       for (const lm of world.landmarks) {
         if (shownFacts.has(lm.name)) continue

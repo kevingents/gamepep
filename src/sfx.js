@@ -3,6 +3,7 @@
 let audioCtx = null
 let musicTimer = null
 let musicStep = 0
+let rainNode = null
 // vrolijk kort loopje
 const MELODY = [392, 0, 523, 587, 523, 440, 392, 0, 440, 0, 587, 659, 523, 440, 392, 0]
 
@@ -146,6 +147,35 @@ export const sfx = {
     if (musicTimer) {
       clearInterval(musicTimer)
       musicTimer = null
+    }
+  },
+  // zacht regengeluid (ruis) tijdens een bui
+  rainStart() {
+    if (!this.enabled || rainNode) return
+    const c = getCtx()
+    if (!c) return
+    const len = 2 * c.sampleRate
+    const buf = c.createBuffer(1, len, c.sampleRate)
+    const d = buf.getChannelData(0)
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1
+    const src = c.createBufferSource()
+    src.buffer = buf
+    src.loop = true
+    const filt = c.createBiquadFilter()
+    filt.type = 'lowpass'
+    filt.frequency.value = 900
+    const g = c.createGain()
+    g.gain.value = 0.04
+    src.connect(filt).connect(g).connect(c.destination)
+    src.start()
+    rainNode = src
+  },
+  rainStop() {
+    if (rainNode) {
+      try {
+        rainNode.stop()
+      } catch (e) {}
+      rainNode = null
     }
   },
 }
