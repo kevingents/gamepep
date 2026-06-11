@@ -279,8 +279,8 @@ export function buildCity(group, GRID, city) {
 
   // Straten + markering
   for (const R of ROADS) {
-    box('#3a3f46', 1, 0.04, GRID, R + 0.5, 0, GRID / 2)
-    box('#3a3f46', GRID, 0.04, 1, GRID / 2, 0, R + 0.5)
+    box('#3a3f46', 3, 0.04, GRID, R + 0.5, 0, GRID / 2)
+    box('#3a3f46', GRID, 0.04, 3, GRID / 2, 0, R + 0.5)
   }
   for (const R of ROADS) {
     for (let t = 1; t < GRID; t += 2) {
@@ -309,10 +309,10 @@ export function buildCity(group, GRID, city) {
     if (x < 1 || z < 1 || x >= GRID - 1 || z >= GRID - 1) return
     const k = x + ',' + z
     if (solids.has(k) || reserved.has(k)) return
-    if (rnd() < 0.24) return
+    if (rnd() < 0.3) return
     solids.add(k)
     const col = palette[(rnd() * palette.length) | 0]
-    const h = 1.5 + rnd() * 1.0
+    const h = 1.4 + rnd() * 0.9
     box(col, 0.92, h, 0.92, x + 0.5, 0, z + 0.5)
     if (rnd() < 0.55) {
       box(col, 0.92, 0.35, 0.5, x + 0.5, h, z + 0.2)
@@ -327,13 +327,13 @@ export function buildCity(group, GRID, city) {
   for (const R of ROADS) {
     for (let z = 1; z < GRID - 1; z++) {
       if (onRoad(z)) continue
-      tryHouse(R - 2, z)
-      tryHouse(R + 2, z)
+      tryHouse(R - 3, z)
+      tryHouse(R + 3, z)
     }
     for (let x = 1; x < GRID - 1; x++) {
       if (onRoad(x)) continue
-      tryHouse(x, R - 2)
-      tryHouse(x, R + 2)
+      tryHouse(x, R - 3)
+      tryHouse(x, R + 3)
     }
   }
 
@@ -348,8 +348,8 @@ export function buildCity(group, GRID, city) {
   }
   for (const R of ROADS) {
     for (let z = 2; z < GRID - 2; z += 2) {
-      tryTree(R - 1, z)
-      tryTree(R + 1, z)
+      tryTree(R - 2, z)
+      tryTree(R + 2, z)
     }
   }
 
