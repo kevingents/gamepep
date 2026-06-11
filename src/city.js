@@ -271,10 +271,52 @@ export function buildCity(group, GRID, city) {
   }
   const ctx = { box, cyl, cone, solidRect, reserveRect, group, animated }
 
-  // Water (langs de randen, zodat de stad niet wordt doorgesneden)
+  // De stad-data is ontworpen voor een 40-veld; schaal mee naar de echte grootte.
+  const S = GRID / 40
+  const ROADS = []
+  for (let r = 7; r < GRID - 2; r += 7) ROADS.push(r)
+  const roadSet = new Set(ROADS)
+  const onRoad = (v) => roadSet.has(v)
+  const nearRoad = (v) => roadSet.has(v) || roadSet.has(v - 1) || roadSet.has(v + 1)
+
+  // Water (rivieren langs de randen), geschaald
   for (const w of city.waters || []) {
-    box('#3aa0d8', w.w, 0.12, w.d, w.x + w.w / 2, 0, w.z + w.d / 2)
-    solidRect(w.x, w.z, w.w, w.d)
+    const wx = Math.round(w.x * S)
+    const wz = Math.round(w.z * S)
+    const ww = Math.max(2, Math.round(w.w * S))
+    const wd = Math.max(2, Math.round(w.d * S))
+    box('#3aa0d8', ww, 0.12, wd, wx + ww / 2, 0, wz + wd / 2)
+    solidRect(wx, wz, ww, wd)
+  }
+
+  // Grachten (watertjes) door de stad, met bruggen waar de wegen kruisen
+  const canalsX = []
+  for (let x = 17; x < GRID - 6; x += 28) if (!onRoad(x)) canalsX.push(x)
+  const canalsZ = []
+  for (let z = 31; z < GRID - 6; z += 28) if (!onRoad(z)) canalsZ.push(z)
+  for (const c of canalsX) {
+    for (let z = 1; z < GRID - 1; z++) {
+      if (nearRoad(z)) continue // bij een weg loopt er een brug overheen
+      box('#3aa0d8', 1, 0.12, 1, c + 0.5, 0, z + 0.5)
+      solids.add(c + ',' + z)
+    }
+    for (const R of ROADS) {
+      box('#9a6a3e', 1.3, 0.08, 3.2, c + 0.5, 0.06, R + 0.5) // brugdek
+      box('#6f4a2e', 0.12, 0.35, 3.2, c - 0.05, 0.12, R + 0.5) // leuning
+      box('#6f4a2e', 0.12, 0.35, 3.2, c + 1.05, 0.12, R + 0.5)
+    }
+  }
+  for (const c of canalsZ) {
+    for (let x = 1; x < GRID - 1; x++) {
+      if (nearRoad(x)) continue
+      box('#3aa0d8', 1, 0.12, 1, x + 0.5, 0, c + 0.5)
+      solids.add(x + ',' + c)
+    }
+    for (const R of ROADS) {
+      box('#9a6a3e', 3.2, 0.08, 1.3, R + 0.5, 0.06, c + 0.5)
+      box('#6f4a2e', 3.2, 0.35, 0.12, R + 0.5, 0.12, c - 0.05)
+      box('#6f4a2e', 3.2, 0.35, 0.12, R + 0.5, 0.12, c + 1.05)
+    }
   }
 
   // Straten + markering
@@ -292,10 +334,12 @@ export function buildCity(group, GRID, city) {
   // Herkenningspunten eerst (zodat er geen huizen overheen komen)
   const landmarks = []
   for (const lm of city.landmarks) {
-    reserveRect(Math.floor(lm.x) - 2, Math.floor(lm.z) - 2, 5, 5)
-    buildLandmark(ctx, lm)
-    label(lm.label || lm.name, lm.x, lm.labelY || 6, lm.z, lm.labelScale || 1.1)
-    landmarks.push({ name: lm.name, x: lm.x, z: lm.z, fact: lm.fact })
+    const lx = lm.x * S
+    const lz = lm.z * S
+    reserveRect(Math.floor(lx) - 2, Math.floor(lz) - 2, 5, 5)
+    buildLandmark(ctx, { ...lm, x: lx, z: lz })
+    label(lm.label || lm.name, lx, lm.labelY || 6, lz, lm.labelScale || 1.1)
+    landmarks.push({ name: lm.name, x: lx, z: lz, fact: lm.fact })
   }
 
   // Huizen langs de straten (een stukje van de weg af)
@@ -309,20 +353,27 @@ export function buildCity(group, GRID, city) {
     if (x < 1 || z < 1 || x >= GRID - 1 || z >= GRID - 1) return
     const k = x + ',' + z
     if (solids.has(k) || reserved.has(k)) return
-    if (rnd() < 0.3) return
+    if (rnd() < 0.22) return
     solids.add(k)
     const col = palette[(rnd() * palette.length) | 0]
-    const h = 1.4 + rnd() * 0.9
+    const tall = rnd() < 0.16 // af en toe een hoog flatgebouw
+    const h = tall ? 3.2 + rnd() * 3.6 : 1.4 + rnd() * 1.3
     box(col, 0.92, h, 0.92, x + 0.5, 0, z + 0.5)
-    if (rnd() < 0.55) {
+    // raamrijen (geeft flats een echte stadslook)
+    const rows = Math.max(1, Math.min(6, Math.floor(h / 1.0)))
+    for (let r = 0; r < rows; r++) box('#bfe4ff', 0.34, 0.32, 0.05, x + 0.5, 0.7 + r * 0.95, z + 0.03)
+    // dak: plat / trapgevel / punt
+    const st = rnd()
+    if (tall || st > 0.66) {
+      box('#5a5a5a', 0.96, 0.16, 0.96, x + 0.5, h, z + 0.5)
+    } else if (st > 0.33) {
       box(col, 0.92, 0.35, 0.5, x + 0.5, h, z + 0.2)
       box(col, 0.6, 0.35, 0.5, x + 0.5, h + 0.35, z + 0.2)
       box(col, 0.3, 0.35, 0.5, x + 0.5, h + 0.7, z + 0.2)
     } else {
-      cone('#7a3f24', 0.75, 0.6, x + 0.5, h, z + 0.5, 4)
+      cone('#7a3f24', 0.78, 0.7, x + 0.5, h, z + 0.5, 4)
     }
-    box('#cfeaff', 0.3, 0.3, 0.06, x + 0.5, 1.2, z + 0.03)
-    box('#3a2a1c', 0.24, 0.6, 0.06, x + 0.5, 0, z + 0.03)
+    box('#3a2a1c', 0.26, 0.7, 0.05, x + 0.5, 0, z + 0.04)
   }
   for (const R of ROADS) {
     for (let z = 1; z < GRID - 1; z++) {
@@ -373,13 +424,14 @@ export function buildCity(group, GRID, city) {
   }
   const carColors = ['#e63946', '#3a6ff7', '#f4a93a', '#2a2f3a', '#ffffff', '#5cb85c', '#9b5de5', '#d23f8f']
   let ci = 0
-  for (const R of ROADS) {
+  for (let i = 0; i < ROADS.length; i += 2) {
+    const R = ROADS[i]
     const c1 = makeCar(carColors[ci++ % carColors.length])
     group.add(c1)
-    cars.push({ mesh: c1, axis: 'z', fixed: R + 0.5, pos: rnd() * GRID, dir: rnd() < 0.5 ? 1 : -1, speed: 2.6 })
+    cars.push({ mesh: c1, axis: 'z', fixed: R + 0.5, pos: rnd() * GRID, dir: rnd() < 0.5 ? 1 : -1, speed: 3.0 })
     const c2 = makeCar(carColors[ci++ % carColors.length])
     group.add(c2)
-    cars.push({ mesh: c2, axis: 'x', fixed: R + 0.5, pos: rnd() * GRID, dir: rnd() < 0.5 ? 1 : -1, speed: 2.6 })
+    cars.push({ mesh: c2, axis: 'x', fixed: R + 0.5, pos: rnd() * GRID, dir: rnd() < 0.5 ? 1 : -1, speed: 3.0 })
   }
 
   // Statische blokken samenvoegen (snel op mobiel)

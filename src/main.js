@@ -14,15 +14,21 @@ import { joinRoom, leaveRoom, sendState, sendFx, sendTag, makeCode, inRoom } fro
 //  Veronicaschool.
 // =====================================================================
 
-const GRID = 40
+const GRID = 160
+const ROAD_STEP = 7
 const MAX_HEARTS = 3
-const STEVE_SPEED = 5.4
+const STEVE_SPEED = 6.0
 const TURN_SPEED = 2.4
-const CREEPER_SPEED = 1.9
-const BASE_DIAMONDS = 6
-const BASE_CREEPERS = 2
-const BASE_KIDS = 4
-const START = { x: 21.5, z: 24.5 } // op de straat naast het centrum
+const CREEPER_SPEED = 2.1
+const BASE_DIAMONDS = 10
+const BASE_CREEPERS = 3
+const BASE_KIDS = 5
+const START = (() => {
+  // een straat-kruising dicht bij het centrum (kruisingen zijn altijd vrij)
+  const r1 = Math.round((GRID * 0.5) / ROAD_STEP) * ROAD_STEP
+  const r2 = Math.round((GRID * 0.62) / ROAD_STEP) * ROAD_STEP
+  return { x: r1 + 0.5, z: r2 + 0.5 }
+})()
 const START_YAW = 0 // kijk naar het noorden, de stad in
 const TAG_TIME = 60
 const HIDE_TIME = 90
@@ -116,18 +122,24 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
 scene.add(new THREE.AmbientLight(0xbfd4ff, 0.62))
 const sun = new THREE.DirectionalLight(0xfff2dc, 1.0)
-sun.position.set(GRID * 0.7, GRID * 1.3, GRID * 0.3)
+sun.position.set(GRID / 2 + 30, 60, GRID / 2 + 18)
 sun.castShadow = true
 sun.shadow.mapSize.set(2048, 2048)
-const sd = GRID * 0.62
+const sd = 28 // schaduw-gebied rond de speler (blijft scherp in een grote stad)
 sun.shadow.camera.left = -sd
 sun.shadow.camera.right = sd
 sun.shadow.camera.top = sd
 sun.shadow.camera.bottom = -sd
 sun.shadow.camera.near = 1
-sun.shadow.camera.far = GRID * 4
+sun.shadow.camera.far = 140
+sun.shadow.bias = -0.0004
 sun.target.position.set(GRID / 2, 0, GRID / 2)
 scene.add(sun, sun.target)
+function updateSunShadow(cx, cz) {
+  sun.position.set(cx + 30, 60, cz + 18)
+  sun.target.position.set(cx, 0, cz)
+  sun.target.updateMatrixWorld()
+}
 
 const groundMats = [mat.dirt, mat.dirt, mat.grass, mat.dirt, mat.dirt, mat.dirt]
 const ground = new THREE.Mesh(new THREE.BoxGeometry(GRID, 1, GRID), groundMats)
@@ -375,7 +387,7 @@ function buildRound() {
     }
     timeLeft = mode === 'tag' ? TAG_TIME : HIDE_TIME
   }
-  for (let i = 0; i < 3; i++) spawnPowerup(taken)
+  for (let i = 0; i < 6; i++) spawnPowerup(taken)
   steveX = START.x
   steveZ = START.z
   player.position.set(steveX, 0, steveZ)
@@ -711,7 +723,7 @@ function startMultiplayer(code, isCreator) {
     POWERS[k].count = 0
   }
   const puTaken = new Set()
-  for (let i = 0; i < 4; i++) spawnPowerup(puTaken)
+  for (let i = 0; i < 7; i++) spawnPowerup(puTaken)
   soundCool = 0
   tagCool = 1
   radarBeacon.visible = false
@@ -940,8 +952,9 @@ function firstPersonCam() {
 function setOverviewCam() {
   camera.fov = 55
   camera.updateProjectionMatrix()
-  camera.position.set(GRID / 2, 13, GRID + 9)
+  camera.position.set(GRID / 2, GRID * 0.4, GRID * 0.92)
   camera.lookAt(GRID / 2, 2, GRID / 2)
+  updateSunShadow(GRID / 2, GRID / 2)
 }
 function setCreatorCam() {
   // kader het hele popje groot in de open ruimte boven het keuzepaneel
@@ -1428,6 +1441,7 @@ function frame(now) {
   world.update(dt) // molenwieken + auto's draaien altijd
   if (status === 'playing') {
     updatePlayer(dt)
+    updateSunShadow(steveX, steveZ)
     if (mode === 'mp') {
       updateMultiplayer(dt)
     } else if (mode === 'diamond') {
