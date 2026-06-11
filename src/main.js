@@ -13,19 +13,24 @@ import { getTop, topScore, qualifies, addScore } from './scores.js'
 //  Veronicaschool.
 // =====================================================================
 
-const GRID = 24
+const GRID = 40
 const MAX_HEARTS = 3
-const STEVE_SPEED = 4.6
-const CREEPER_SPEED = 1.7
-const BASE_DIAMONDS = 5
+const STEVE_SPEED = 5.4
+const CREEPER_SPEED = 1.9
+const BASE_DIAMONDS = 6
 const BASE_CREEPERS = 2
-const START = { x: 12.5, z: 20.5 }
+const BASE_KIDS = 4
+const START = { x: 19.5, z: 20.5 }
+const TAG_TIME = 70
+const HIDE_TIME = 90
+const MODE_LABEL = { diamond: 'DIAMANTEN', tag: 'TIKKERTJE', hide: 'VERSTOPPEN' }
 
 // ---------- DOM ----------
 const canvas = document.getElementById('game')
 const hud = {
   level: document.getElementById('level'),
   hearts: document.getElementById('hearts'),
+  timer: document.getElementById('timer'),
   score: document.getElementById('score'),
   diamonds: document.getElementById('diamonds'),
 }
@@ -98,8 +103,8 @@ scene.add(new THREE.AmbientLight(0xbfd4ff, 0.62))
 const sun = new THREE.DirectionalLight(0xfff2dc, 1.0)
 sun.position.set(GRID * 0.7, GRID * 1.3, GRID * 0.3)
 sun.castShadow = true
-sun.shadow.mapSize.set(1024, 1024)
-const sd = GRID * 0.8
+sun.shadow.mapSize.set(2048, 2048)
+const sd = GRID * 0.62
 sun.shadow.camera.left = -sd
 sun.shadow.camera.right = sd
 sun.shadow.camera.top = sd
@@ -146,9 +151,13 @@ let steveZ = START.z
 let walkPhase = 0
 let invuln = 0
 let pendingScore = 0
+let mode = 'diamond' // 'diamond' | 'tag' | 'hide'
 let diamonds = []
 let creepers = []
+let npcs = []
 let totalDiamonds = 0
+let totalKids = 0
+let timeLeft = 0
 let playerName = loadName()
 let nameTag = null
 let shownFacts = new Set()
@@ -183,6 +192,17 @@ function makeCreeper() {
   return g
 }
 
+// vriendjes-popjes (NPC's) voor tikkertje en verstoppertje
+function randomCfg() {
+  return {
+    skin: (Math.random() * OPTIONS.skin.length) | 0,
+    shirt: (Math.random() * OPTIONS.shirt.length) | 0,
+    pants: (Math.random() * OPTIONS.pants.length) | 0,
+    hair: (Math.random() * OPTIONS.hair.length) | 0,
+    hat: (Math.random() * OPTIONS.hat.length) | 0,
+  }
+}
+
 // ---------- Ronde bouwen ----------
 function clearRound() {
   for (const child of [...roundGroup.children]) {
@@ -193,6 +213,7 @@ function clearRound() {
   }
   diamonds = []
   creepers = []
+  npcs = []
 }
 function freeCell(taken) {
   for (let tries = 0; tries < 300; tries++) {
@@ -207,26 +228,50 @@ function freeCell(taken) {
   }
   return null
 }
+function hiddenCell(taken) {
+  for (let tries = 0; tries < 400; tries++) {
+    const c = freeCell(taken)
+    if (!c) return null
+    const cx = Math.floor(c.x)
+    const cz = Math.floor(c.z)
+    if (cellSolid(cx + 1, cz) || cellSolid(cx - 1, cz) || cellSolid(cx, cz + 1) || cellSolid(cx, cz - 1)) return c
+    taken.delete(cx + ',' + cz)
+  }
+  return freeCell(taken)
+}
 function buildRound() {
   clearRound()
   const taken = new Set()
-  totalDiamonds = BASE_DIAMONDS + (round - 1) * 2
-  for (let i = 0; i < totalDiamonds; i++) {
-    const c = freeCell(taken)
-    if (!c) continue
-    const m = makeDiamond()
-    m.position.set(c.x, 0.9, c.z)
-    roundGroup.add(m)
-    diamonds.push({ mesh: m, x: c.x, z: c.z, baseY: 0.9, phase: Math.random() * 6.28, collected: false })
-  }
-  const creeperCount = BASE_CREEPERS + (round - 1)
-  for (let i = 0; i < creeperCount; i++) {
-    const c = freeCell(taken)
-    if (!c) continue
-    const m = makeCreeper()
-    m.position.set(c.x, 0, c.z)
-    roundGroup.add(m)
-    creepers.push({ mesh: m, x: c.x, z: c.z, heading: Math.random() * 6.28, timer: 0 })
+  if (mode === 'diamond') {
+    totalDiamonds = BASE_DIAMONDS + (round - 1) * 2
+    for (let i = 0; i < totalDiamonds; i++) {
+      const c = freeCell(taken)
+      if (!c) continue
+      const m = makeDiamond()
+      m.position.set(c.x, 0.9, c.z)
+      roundGroup.add(m)
+      diamonds.push({ mesh: m, x: c.x, z: c.z, baseY: 0.9, phase: Math.random() * 6.28, collected: false })
+    }
+    const creeperCount = BASE_CREEPERS + (round - 1)
+    for (let i = 0; i < creeperCount; i++) {
+      const c = freeCell(taken)
+      if (!c) continue
+      const m = makeCreeper()
+      m.position.set(c.x, 0, c.z)
+      roundGroup.add(m)
+      creepers.push({ mesh: m, x: c.x, z: c.z, heading: Math.random() * 6.28, timer: 0 })
+    }
+  } else {
+    totalKids = BASE_KIDS + (round - 1)
+    for (let i = 0; i < totalKids; i++) {
+      const c = mode === 'hide' ? hiddenCell(taken) : freeCell(taken)
+      if (!c) continue
+      const m = makeCharacter(randomCfg())
+      m.position.set(c.x, 0, c.z)
+      roundGroup.add(m)
+      npcs.push({ mesh: m, x: c.x, z: c.z, heading: Math.random() * 6.28, timer: 0, phase: 0, caught: false })
+    }
+    timeLeft = mode === 'tag' ? TAG_TIME : HIDE_TIME
   }
   steveX = START.x
   steveZ = START.z
@@ -234,7 +279,7 @@ function buildRound() {
   player.rotation.y = 0
   player.visible = true
   invuln = 0
-  camera.position.set(steveX, 11, steveZ + 13)
+  camera.position.set(steveX, 12, steveZ + 14)
   camLook.set(steveX, 1.2, steveZ)
   camera.lookAt(camLook)
   updateHud()
@@ -299,37 +344,96 @@ function updateCreepers(dt) {
     c.mesh.rotation.y = Math.atan2(dx, -dz)
   }
 }
-function checkCollisions() {
-  for (const d of diamonds) {
-    if (d.collected) continue
-    const dx = d.x - steveX
-    const dz = d.z - steveZ
-    if (dx * dx + dz * dz < 0.45 * 0.45) {
-      d.collected = true
-      d.mesh.visible = false
-      score += 100
-      sfx.coin()
-      updateHud()
-      if (diamonds.every((q) => q.collected)) {
-        roundClear()
-        return
+function updateNPCs(dt) {
+  for (const n of npcs) {
+    if (n.caught) continue
+    if (mode === 'tag') {
+      const dx = n.x - steveX
+      const dz = n.z - steveZ
+      const dist = Math.hypot(dx, dz)
+      let mvx, mvz
+      if (dist < 6 && dist > 0.001) {
+        mvx = dx / dist
+        mvz = dz / dist // wegrennen van de speler
+      } else {
+        n.timer -= dt
+        if (n.timer <= 0) {
+          n.heading = Math.random() * 6.28
+          n.timer = 1 + Math.random() * 1.5
+        }
+        mvx = Math.cos(n.heading)
+        mvz = Math.sin(n.heading)
       }
+      const sp = STEVE_SPEED * 0.62 * dt
+      const nx = clamp(n.x + mvx * sp, 0.6, GRID - 0.6)
+      if (!cellSolid(nx, n.z)) n.x = nx
+      const nz = clamp(n.z + mvz * sp, 0.6, GRID - 0.6)
+      if (!cellSolid(n.x, nz)) n.z = nz
+      n.mesh.rotation.y = Math.atan2(mvx, -mvz)
+      n.phase += dt * 10
+      const sw = Math.sin(n.phase) * 0.6
+      n.mesh.userData.lLeg.rotation.x = sw
+      n.mesh.userData.rLeg.rotation.x = -sw
+      n.mesh.userData.lArm.rotation.x = -sw
+      n.mesh.userData.rArm.rotation.x = sw
+      n.mesh.position.set(n.x, Math.abs(Math.sin(n.phase)) * 0.05, n.z)
+    } else {
+      n.phase += dt * 2
+      n.mesh.position.y = Math.abs(Math.sin(n.phase)) * 0.03
     }
   }
-  if (invuln <= 0) {
-    for (const c of creepers) {
-      const dx = c.x - steveX
-      const dz = c.z - steveZ
-      if (dx * dx + dz * dz < 0.6 * 0.6) {
-        hit()
-        break
+}
+function checkCollisions() {
+  if (mode === 'diamond') {
+    for (const d of diamonds) {
+      if (d.collected) continue
+      const dx = d.x - steveX
+      const dz = d.z - steveZ
+      if (dx * dx + dz * dz < 0.45 * 0.45) {
+        d.collected = true
+        d.mesh.visible = false
+        score += 100
+        sfx.coin()
+        updateHud()
+        if (diamonds.every((q) => q.collected)) {
+          roundClear()
+          return
+        }
+      }
+    }
+    if (invuln <= 0) {
+      for (const c of creepers) {
+        const dx = c.x - steveX
+        const dz = c.z - steveZ
+        if (dx * dx + dz * dz < 0.6 * 0.6) {
+          hit()
+          break
+        }
+      }
+    }
+  } else {
+    for (const n of npcs) {
+      if (n.caught) continue
+      const dx = n.x - steveX
+      const dz = n.z - steveZ
+      if (dx * dx + dz * dz < 0.7 * 0.7) {
+        n.caught = true
+        n.mesh.visible = false
+        score += mode === 'tag' ? 150 : 200
+        sfx.coin()
+        showToast(mode === 'tag' ? 'Getikt!' : 'Gevonden!')
+        updateHud()
+        if (npcs.every((q) => q.caught)) {
+          roundClear()
+          return
+        }
       }
     }
   }
 }
 function roundClear() {
-  score += 250
   round += 1
+  score += mode === 'diamond' ? 250 : 300
   sfx.win()
   showToast('RONDE ' + round)
   buildRound()
@@ -377,14 +481,29 @@ function heartIcon(full) {
 }
 const diamondIcon =
   '<svg viewBox="0 0 24 24" class="icon"><path d="M6 3h12l4 6-10 12L2 9z" fill="#36d6e7" stroke="#1a9fb0" stroke-width="1.5"/></svg>'
+const kidIcon =
+  '<svg viewBox="0 0 24 24" class="icon"><circle cx="12" cy="7" r="3.4" fill="#ffd166"/><path d="M5 21c0-4 3.4-6.5 7-6.5s7 2.5 7 6.5z" fill="#36d6e7"/></svg>'
+function fmtTime(t) {
+  const s = Math.max(0, Math.ceil(t))
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0')
+}
 function updateHud() {
-  let h = ''
-  for (let i = 0; i < MAX_HEARTS; i++) h += heartIcon(i < lives)
-  hud.hearts.innerHTML = h
-  const got = diamonds.filter((d) => d.collected).length
-  hud.diamonds.innerHTML = diamondIcon + '<span>' + got + '/' + totalDiamonds + '</span>'
+  const isD = mode === 'diamond'
+  hud.hearts.style.display = isD ? 'flex' : 'none'
+  hud.timer.style.display = isD ? 'none' : 'flex'
+  if (isD) {
+    let h = ''
+    for (let i = 0; i < MAX_HEARTS; i++) h += heartIcon(i < lives)
+    hud.hearts.innerHTML = h
+    const got = diamonds.filter((d) => d.collected).length
+    hud.diamonds.innerHTML = diamondIcon + '<span>' + got + '/' + totalDiamonds + '</span>'
+  } else {
+    const got = npcs.filter((n) => n.caught).length
+    hud.diamonds.innerHTML = kidIcon + '<span>' + got + '/' + totalKids + '</span>'
+    hud.timer.textContent = fmtTime(timeLeft)
+  }
   hud.score.textContent = String(score).padStart(5, '0')
-  hud.level.textContent = 'RONDE ' + round
+  hud.level.textContent = MODE_LABEL[mode] + ' R' + round
 }
 
 // ---------- Schermen ----------
@@ -415,7 +534,8 @@ function showIntro() {
   $('introGreeting').textContent = playerName ? 'Hoi, ' + playerName + '!' : ''
   $('intro').classList.add('show')
 }
-function startGame() {
+function startGame(m) {
+  mode = m || 'diamond'
   resumeAudio()
   sfx.start()
   status = 'playing'
@@ -664,7 +784,9 @@ window.addEventListener('pointerup', () => {
 })
 
 // ---------- Knoppen ----------
-$('btnPlay').addEventListener('click', startGame)
+$('btnDiamond').addEventListener('click', () => startGame('diamond'))
+$('btnTag').addEventListener('click', () => startGame('tag'))
+$('btnHide').addEventListener('click', () => startGame('hide'))
 $('btnCreator').addEventListener('click', showCreator)
 $('btnCreatorDone').addEventListener('click', exitCreator)
 $('btnRestart').addEventListener('click', showIntro)
@@ -701,30 +823,37 @@ let last = performance.now()
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000)
   last = now
+  world.update(dt) // molenwieken + auto's draaien altijd
   if (status === 'playing') {
     updatePlayer(dt)
-    updateCreepers(dt)
+    if (mode === 'diamond') updateCreepers(dt)
+    else updateNPCs(dt)
     checkCollisions()
-    world.update(dt)
-    for (const d of diamonds) {
-      if (d.collected) continue
-      d.mesh.rotation.y += dt * 2.2
-      d.mesh.position.y = d.baseY + Math.sin(now * 0.003 + d.phase) * 0.15
+    if (status === 'playing' && mode !== 'diamond') {
+      timeLeft -= dt
+      hud.timer.textContent = fmtTime(timeLeft)
+      if (timeLeft <= 0) showGameOver()
     }
-    for (const lm of world.landmarks) {
-      if (shownFacts.has(lm.name)) continue
-      const dx = lm.x - steveX
-      const dz = lm.z - steveZ
-      if (dx * dx + dz * dz < FACT_RADIUS * FACT_RADIUS) {
-        shownFacts.add(lm.name)
-        showFact(lm.name, lm.fact)
+    if (status === 'playing') {
+      for (const d of diamonds) {
+        if (d.collected) continue
+        d.mesh.rotation.y += dt * 2.2
+        d.mesh.position.y = d.baseY + Math.sin(now * 0.003 + d.phase) * 0.15
       }
+      for (const lm of world.landmarks) {
+        if (shownFacts.has(lm.name)) continue
+        const dx = lm.x - steveX
+        const dz = lm.z - steveZ
+        if (dx * dx + dz * dz < FACT_RADIUS * FACT_RADIUS) {
+          shownFacts.add(lm.name)
+          showFact(lm.name, lm.fact)
+          break // maar één weetje tegelijk
+        }
+      }
+      followCam(dt)
     }
-    followCam(dt)
   } else if (status === 'creator') {
     player.rotation.y += dt * 0.8
-  } else {
-    world.update(dt)
   }
   if (nameTag) {
     const show = player.visible && (status === 'playing' || status === 'creator')

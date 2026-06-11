@@ -66,6 +66,11 @@ body {
   font-size: 13px;
   color: var(--yellow);
 }
+.hud-timer {
+  font-family: var(--arcade);
+  font-size: 13px;
+  color: var(--pink);
+}
 #diamonds {
   gap: 3px;
 }
@@ -195,6 +200,12 @@ body {
   align-items: center;
   justify-content: center;
   padding: 18px;
+  overflow-y: auto;
+}
+.arcade-pick {
+  font-size: 15px;
+  margin: 4px 0 10px;
+  color: var(--text);
 }
 .screen.show {
   display: flex;
@@ -251,13 +262,13 @@ body {
   display: block;
   width: 100%;
   max-width: 320px;
-  margin: 0 auto 12px;
+  margin: 0 auto 10px;
   border: none;
   font-family: var(--arcade);
-  font-size: 16px;
+  font-size: 15px;
   color: #06222a;
   background: var(--accent);
-  padding: 16px 18px;
+  padding: 13px 18px;
   border-radius: 12px;
   cursor: pointer;
   box-shadow: 0 5px 0 var(--accent-dark);

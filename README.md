@@ -11,11 +11,16 @@ Houd een richting ingedrukt om te lopen.
 
 ## Wat zit erin
 
-- **Arcade-intro** met topscore en knipperende "DRUK OP SPELEN".
-- **Haarlem** als speelwereld met herkenningspunten + naambordjes.
-- **Eigen popje** maken (huid, shirt, broek, haar, pet) — wordt onthouden.
-- **Punten, levens en rondes**: elke ronde meer diamanten en creepers.
-- **GAME OVER** met highscore-lijst (3 letters, arcade-stijl).
+- **Drie spellen** om uit te kiezen:
+  - **Diamanten zoeken** — pak alle diamanten, ontwijk de creepers (3 levens).
+  - **Tikkertje** — tik alle rondrennende kinderen voor de tijd om is (geen monsters).
+  - **Verstoppertje** — vind alle verstopte kinderen voor de tijd om is (geen monsters).
+- **Groot, gedetailleerd Haarlem**: straten, veel huizen, bomen, rijdende auto's,
+  een gracht en herkenningspunten met naambordjes.
+- **Eigen popje + naam**: maak je popje (huid, shirt, broek, haar, pet) en kies een
+  naam (bordje boven je popje, automatisch bij de highscores). Wordt onthouden.
+- **Haarlemse weetjes**: loop je naar een gebouw, dan verschijnt een leuk feitje.
+- **Arcade-intro**, punten, rondes en **GAME OVER** met highscore-lijst.
 
 > De highscores staan nu nog **lokaal** (op het apparaat). De opzet is zo
 > gebouwd dat ze met één stap naar een online/wereldwijde lijst (Supabase)
@@ -40,8 +45,8 @@ npm run dev      # open de link die hij toont
 ## Zelf aanpassen
 
 Knoppen om aan te draaien staan bovenin [`src/main.js`](src/main.js):
-`GRID`, `MAX_HEARTS`, `STEVE_SPEED`, `CREEPER_SPEED`, `BASE_DIAMONDS`,
-`BASE_CREEPERS`, `START`.
+`GRID` (grootte stad), `MAX_HEARTS`, `STEVE_SPEED`, `CREEPER_SPEED`,
+`BASE_DIAMONDS`, `BASE_CREEPERS`, `BASE_KIDS`, `TAG_TIME`, `HIDE_TIME`, `START`.
 
 | Bestand | Wat erin zit |
 |---|---|
