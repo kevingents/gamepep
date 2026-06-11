@@ -14,15 +14,15 @@ import { joinRoom, leaveRoom, sendState, sendFx, sendTag, makeCode, inRoom } fro
 //  Veronicaschool.
 // =====================================================================
 
-const GRID = 30
+const GRID = 40
 const MAX_HEARTS = 3
-const STEVE_SPEED = 5.0
+const STEVE_SPEED = 5.4
 const TURN_SPEED = 2.4
-const CREEPER_SPEED = 1.8
+const CREEPER_SPEED = 1.9
 const BASE_DIAMONDS = 6
 const BASE_CREEPERS = 2
 const BASE_KIDS = 4
-const START = { x: 15.5, z: 20.5 } // op de straat richting het centrum
+const START = { x: 21.5, z: 24.5 } // op de straat naast het centrum
 const START_YAW = 0 // kijk naar het noorden, de stad in
 const TAG_TIME = 60
 const HIDE_TIME = 90
