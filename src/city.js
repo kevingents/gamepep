@@ -1186,49 +1186,76 @@ export function buildCity(group, GRID, city) {
     if (solids.has(k) || reserved.has(k)) return
     solids.add(k)
     houses.add(k) // hier kun je wonen en aanbellen
+    // welke kant ligt de weg op? de buur met de laagste rd (richting straat)
+    let fx = 0
+    let fz = -1
+    let bestRd = rdAt(x, z)
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const r = rdAt(x + dx, z + dz)
+      if (r < bestRd) {
+        bestRd = r
+        fx = dx
+        fz = dz
+      }
+    }
+    const perpx = -fz
+    const perpz = fx
+    // georiënteerde doos: 'wide' langs de gevel, 'deep' de diepte in, 'off'
+    // naar de straat toe, 'side' opzij langs de gevel. y = onderkant.
+    const oBox = (color, wide, hgt, deep, off, side, y) => {
+      const X = x + 0.5 + fx * off + perpx * side
+      const Z = z + 0.5 + fz * off + perpz * side
+      box(color, fx !== 0 ? deep : wide, hgt, fx !== 0 ? wide : deep, X, y, Z)
+    }
     const col = palette[(rnd() * palette.length) | 0]
     const tall = rnd() < (city.tall || 0.15) // Rotterdam veel hoogbouw, Amsterdam smal en hoog
-    const h = tall ? 3.2 + rnd() * 3.6 : 1.5 + rnd() * 1.3
-    box(col, 0.92, h, 0.92, x + 0.5, 0, z + 0.5)
-    box('#3c3744', 0.96, 0.22, 0.96, x + 0.5, 0, z + 0.5) // plint
-    // ramen: 1 of 2 kolommen, met witte kozijnen
+    const h = tall ? 3.0 + rnd() * 3.0 : 1.5 + rnd() * 1.3
+    oBox(col, 0.92, h, 0.92, 0, 0, 0)
+    oBox('#3c3744', 0.96, 0.22, 0.96, 0, 0, 0) // plint
+    // ramen op de straatgevel: 1 of 2 kolommen, met witte kozijnen
     const twoCols = rnd() < 0.55
     const rows = Math.max(1, Math.min(6, Math.floor(h / 0.95)))
-    const colsX = twoCols ? [-0.21, 0.21] : [0]
+    const sides = twoCols ? [-0.21, 0.21] : [0]
     for (let r = 0; r < rows; r++) {
       const wy = 0.78 + r * 0.9
       if (wy > h - 0.35) break
-      for (const wx of colsX) {
-        box('#f4f1e8', twoCols ? 0.3 : 0.42, 0.4, 0.03, x + 0.5 + wx, wy - 0.05, z + 0.025) // kozijn
-        box('#bfe4ff', twoCols ? 0.22 : 0.32, 0.3, 0.04, x + 0.5 + wx, wy, z + 0.03) // glas
+      for (const s of sides) {
+        oBox('#f4f1e8', twoCols ? 0.3 : 0.42, 0.4, 0.04, 0.46, s, wy - 0.05) // kozijn
+        oBox('#bfe4ff', twoCols ? 0.22 : 0.32, 0.3, 0.04, 0.49, s, wy) // glas
       }
     }
-    // deur met kozijn en een stoepje
+    // deur met kozijn en een stoepje, op de straatgevel
     const doorCol = ['#3a2a1c', '#7a1f2b', '#1f4d3a', '#2b3a6e'][(rnd() * 4) | 0]
-    box('#f4f1e8', 0.34, 0.76, 0.03, x + 0.5, 0, z + 0.035)
-    box(doorCol, 0.26, 0.68, 0.05, x + 0.5, 0, z + 0.04)
-    box('#9aa0a8', 0.4, 0.07, 0.18, x + 0.5, 0, z - 0.06)
-    // dak: vijf varianten (plat, trapgevel, zadeldak, puntdak, klokgevel)
+    oBox('#f4f1e8', 0.34, 0.76, 0.04, 0.46, 0, 0)
+    oBox(doorCol, 0.26, 0.68, 0.05, 0.49, 0, 0)
+    oBox('#9aa0a8', 0.4, 0.07, 0.2, 0.56, 0, 0)
+    // dak: vijf varianten, met de sierlijke gevel naar de straat
     const roofCol = roofCols[(rnd() * roofCols.length) | 0]
     const st = rnd()
     if (tall || st > 0.78) {
-      box('#5a5a5a', 0.98, 0.14, 0.98, x + 0.5, h, z + 0.5)
-      box('#6e6e72', 0.6, 0.1, 0.6, x + 0.5, h + 0.14, z + 0.5)
+      oBox('#5a5a5a', 0.98, 0.14, 0.98, 0, 0, h)
+      oBox('#6e6e72', 0.6, 0.1, 0.6, 0, 0, h + 0.14)
     } else if (st > 0.56) {
-      box(col, 0.92, 0.32, 0.5, x + 0.5, h, z + 0.2)
-      box(col, 0.6, 0.32, 0.5, x + 0.5, h + 0.32, z + 0.2)
-      box(col, 0.3, 0.32, 0.5, x + 0.5, h + 0.64, z + 0.2)
+      // trapgevel naar de straat
+      let gw = 0.92
+      let gy = h
+      for (let s = 0; s < 3; s++) {
+        oBox(col, gw, 0.32, 0.5, 0.21, 0, gy)
+        gw -= 0.31
+        gy += 0.32
+      }
     } else if (st > 0.36) {
-      box(roofCol, 0.98, 0.3, 0.78, x + 0.5, h, z + 0.5)
-      box(roofCol, 0.98, 0.28, 0.4, x + 0.5, h + 0.3, z + 0.5)
+      oBox(roofCol, 0.98, 0.3, 0.78, 0, 0, h)
+      oBox(roofCol, 0.98, 0.28, 0.4, 0, 0, h + 0.3)
     } else if (st > 0.16) {
       cone(roofCol, 0.78, 0.8, x + 0.5, h, z + 0.5, 4)
     } else {
-      box(col, 0.7, 0.3, 0.5, x + 0.5, h, z + 0.2)
-      box(col, 0.42, 0.28, 0.5, x + 0.5, h + 0.3, z + 0.2)
-      box(col, 0.2, 0.24, 0.5, x + 0.5, h + 0.58, z + 0.2)
+      // klokgevel naar de straat
+      oBox(col, 0.7, 0.3, 0.5, 0.21, 0, h)
+      oBox(col, 0.42, 0.28, 0.5, 0.21, 0, h + 0.3)
+      oBox(col, 0.2, 0.24, 0.5, 0.21, 0, h + 0.58)
     }
-    if (rnd() < 0.3) box('#7a4538', 0.16, 0.5, 0.16, x + 0.18, h - 0.05, z + 0.7) // schoorsteen
+    if (rnd() < 0.3) oBox('#7a4538', 0.16, 0.5, 0.16, -0.3, 0.3, h - 0.05) // schoorsteen achterop
   }
   function tree(x, z) {
     const k = x + ',' + z
