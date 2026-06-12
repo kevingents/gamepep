@@ -68,48 +68,62 @@ const $ = (id) => document.getElementById(id)
 const minimap = document.getElementById('minimap')
 const mmCtx = minimap.getContext('2d')
 let mmT = 0
-// GTA-stijl minikaart: jij in het midden als pijltje, de stad eromheen,
-// met stippen voor de school, jullie huis, June en landmarks.
+// GTA-stijl minikaart: jij staat altijd als pijltje in het midden en wijst
+// omhoog; de kaart eronder DRAAIT mee met je kijkrichting. Stippen voor de
+// school, jullie huis, June en landmarks. Diamanten/kinderen alleen als de
+// radar-power-up aan staat.
 function drawMinimap() {
   const S = 120
   const R = 34 // hoeveel wereld je ziet (straal)
   const src = world.minimap
   if (!src) return
   const MS = world.miniScale || 2
+  const scale = S / 2 / R // schermpixels per wereldeenheid
   mmCtx.clearRect(0, 0, S, S)
   mmCtx.save()
   mmCtx.beginPath()
   mmCtx.arc(S / 2, S / 2, S / 2, 0, 7)
   mmCtx.clip()
+  // de kaart draait mee: zet het midden op de speler en draai met -yaw
+  mmCtx.translate(S / 2, S / 2)
+  mmCtx.rotate(-yaw)
   mmCtx.imageSmoothingEnabled = false
-  mmCtx.drawImage(src, (steveX - R) * MS, (steveZ - R) * MS, R * 2 * MS, R * 2 * MS, 0, 0, S, S)
+  const k = scale / MS
+  mmCtx.drawImage(src, -steveX * MS * k, -steveZ * MS * k, src.width * k, src.height * k)
   const dot = (wx, wz, color, r) => {
-    const px = S / 2 + ((wx - steveX) / R) * (S / 2)
-    const py = S / 2 + ((wz - steveZ) / R) * (S / 2)
+    const dx = wx - steveX
+    const dz = wz - steveZ
+    if (dx * dx + dz * dz > R * R) return
     mmCtx.fillStyle = color
     mmCtx.beginPath()
-    mmCtx.arc(px, py, r, 0, 7)
+    mmCtx.arc(dx * scale, dz * scale, r, 0, 7)
     mmCtx.fill()
     mmCtx.strokeStyle = '#16161e'
     mmCtx.lineWidth = 1
     mmCtx.stroke()
   }
   for (const lm of world.landmarks) {
-    if (Math.abs(lm.x - steveX) > R || Math.abs(lm.z - steveZ) > R) continue
     const school = lm.name === 'Veronicaschool'
     const home = lm.name === 'Lange Herenvest 16'
     dot(lm.x, lm.z, school ? '#36d6e7' : home ? '#9be15d' : '#ffd166', school || home ? 4 : 3)
   }
   if (mode === 'baby' && june) dot(juneX, juneZ, '#ff7ab6', 4)
+  // radar-power-up: toon de doelen op de kaart
+  if (POWERS.radar.t > 0) {
+    if (mode === 'diamond') {
+      for (const d of diamonds) if (!d.collected) dot(d.x, d.z, '#36d6e7', 3)
+    } else if (mode === 'tag' || mode === 'hide') {
+      for (const n of npcs) if (!n.caught) dot(n.x, n.z, '#ffd166', 3)
+    }
+  }
   for (const id in mpPlayers) {
     const rp = mpPlayers[id]
-    if (Math.abs(rp.x - steveX) <= R && Math.abs(rp.z - steveZ) <= R) dot(rp.x, rp.z, '#ff5bb0', 3)
+    dot(rp.x, rp.z, '#ff5bb0', 3)
   }
   mmCtx.restore()
-  // speler-pijl in het midden, wijst in je kijkrichting
+  // speler-pijl: staat vast in het midden en wijst omhoog (vooruit)
   mmCtx.save()
   mmCtx.translate(S / 2, S / 2)
-  mmCtx.rotate(yaw)
   mmCtx.fillStyle = '#ffffff'
   mmCtx.strokeStyle = '#16161e'
   mmCtx.lineWidth = 1.5
@@ -122,11 +136,13 @@ function drawMinimap() {
   mmCtx.fill()
   mmCtx.stroke()
   mmCtx.restore()
-  // noord-aanduiding
-  mmCtx.fillStyle = 'rgba(255,255,255,0.9)'
+  // noord-aanduiding draait mee met de kaart
+  const nr = S / 2 - 11
+  mmCtx.fillStyle = 'rgba(255,255,255,0.95)'
   mmCtx.font = 'bold 11px sans-serif'
   mmCtx.textAlign = 'center'
-  mmCtx.fillText('N', S / 2, 13)
+  mmCtx.textBaseline = 'middle'
+  mmCtx.fillText('N', S / 2 + nr * -Math.sin(yaw), S / 2 + nr * -Math.cos(yaw))
 }
 
 // ---------- Texturen (creeper-gezicht + gras) ----------
