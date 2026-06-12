@@ -203,8 +203,11 @@ function buildLandmark(ctx, lm) {
       box(fig, 0.28, 0.28, 0.26, x, 2.7, z)
       box(fig, 0.5, 0.12, 0.12, x, 2.45, z - 0.2)
       box('#caa23a', 0.22, 0.26, 0.04, x, 2.5, z - 0.34) // de letter (boekdrukkunst)
-      // marktkraampjes rondom met gestreepte luifels
-      const stalls = [[-3, -3, '#e63946'], [-4, 1.5, '#3a6ff7'], [-2.5, 3.6, '#4caf50'], [2.6, -3.6, '#ffd166'], [3.6, 2.2, '#9b5de5']]
+      // marktkraampjes in twee rijen langs de randen, het midden blijft open
+      const stalls = [
+        [-5, -6, '#e63946'], [-2, -6, '#3a6ff7'], [1, -6, '#ffd166'],
+        [-5, 4, '#9b5de5'], [-2, 4, '#ff7ab6'], [1, 4, '#00b4d8'],
+      ]
       for (const [sx, sz, col] of stalls) {
         const bx = x + sx
         const bz = z + sz
@@ -218,7 +221,7 @@ function buildLandmark(ctx, lm) {
         box('#f4f1e8', 1.55, 0.06, 0.3, bx, 1.97, bz - 0.44)
         box('#f4f1e8', 1.55, 0.06, 0.3, bx, 1.97, bz + 0.16)
       }
-      for (const [lx, lz] of [[-4.6, -1], [4.6, -1], [0, 4.6]]) {
+      for (const [lx, lz] of [[-6, -6], [-6, 6], [3, -6], [3, 6]]) {
         box('#2a2f3a', 0.1, 2.4, 0.1, x + lx, 0, z + lz)
         box('#fff7c0', 0.22, 0.22, 0.22, x + lx, 2.4, z + lz)
       }
@@ -936,12 +939,15 @@ export function buildCity(group, GRID, city) {
     // de Gravestenenbrug: de witte houten ophaalbrug over het Spaarne
     reserveRect(115, 69, 5, 3) // het bruggat vrijhouden van huizen
     makeDrawbridge(115, 70, 'x', 5, '#f4f1ea', '#eef1f4')
-    // de Grote Markt: plaveisel rond de Grote Kerk
-    reserveRect(70, 60, 14, 12)
-    for (let px = 70; px < 84; px++)
-      for (let pz = 60; pz < 72; pz++) {
+    // de Grote Markt: een ruim, open plein tussen de Grote Kerk (oost), het
+    // Stadhuis (west) en de Vleeshal (zuid). Veel plaveisel = de juiste maat.
+    reserveRect(62, 56, 25, 18)
+    for (let px = 62; px < 87; px++)
+      for (let pz = 56; pz < 74; pz++) {
         if (rdAt(px, pz) === 0) continue
-        box('#cdc4b0', 1, 0.05, 1, px + 0.5, 0, pz + 0.5)
+        // lichte natuursteen met een enkele donkere band voor een echt plein-gevoel
+        const band = (px + pz) % 6 === 0
+        box(band ? '#bcb3a2' : '#cdc4b0', 1, 0.05, 1, px + 0.5, 0, pz + 0.5)
       }
     // vlaggetjes boven de Grote Houtstraat
     const vlagCols = ['#e63946', '#ffd166', '#3a6ff7', '#4caf50', '#ff7ab6']
@@ -1443,11 +1449,11 @@ export const CITIES = [
     name: 'Haarlem',
     palette: HOUSE_NL,
     abs: true, // plekken staan op echte kaart-posities (160-rooster)
-    start: { x: 76.5, z: 67.5 }, // je begint op de Grote Markt
+    start: { x: 73.5, z: 67.5 }, // je begint midden op de Grote Markt
     landmarks: [
       { name: 'Grote Kerk (Sint-Bavo)', type: 'bavo', x: 81, z: 66, labelY: 23.5, labelScale: 1.2, fact: 'De Grote of Sint-Bavokerk staat op de Grote Markt en heeft een wereldberoemd orgel. Mozart speelde erop toen hij nog maar 10 jaar oud was! De hoge grijze toren zie je van ver.' },
-      { name: 'Stadhuis', type: 'stadhuis', x: 70, z: 66, opts: { color: '#9c4a38' }, labelY: 9.6, fact: 'Het Stadhuis van Haarlem staat aan de Grote Markt, recht tegenover de Grote Kerk. Het heeft een mooie trapgevel en een open booggalerij.' },
-      { name: 'Vleeshal', type: 'museum', x: 84, z: 63, opts: { color: '#7a8088', spire: '#5a6470' }, labelY: 6.0, fact: 'De Vleeshal bij de Grote Markt is meer dan 400 jaar oud. Vroeger werd er vlees verkocht, nu is het een museum.' },
+      { name: 'Stadhuis', type: 'stadhuis', x: 65, z: 66, opts: { color: '#9c4a38' }, labelY: 9.6, fact: 'Het Stadhuis van Haarlem staat aan de Grote Markt, recht tegenover de Grote Kerk. Het heeft een mooie trapgevel en een open booggalerij.' },
+      { name: 'Vleeshal', type: 'museum', x: 71, z: 71, opts: { color: '#a85a45', spire: '#7a3f24' }, labelY: 6.0, fact: 'De Vleeshal aan de zuidkant van de Grote Markt is meer dan 400 jaar oud. Vroeger werd er vlees verkocht, nu is het een museum.' },
       { name: 'Grote Markt', type: 'market', x: 74, z: 65, labelY: 3.4, fact: 'Op de Grote Markt is vaak markt met kraampjes. Hier staat ook het standbeeld van Laurens Janszoon Coster, die volgens Haarlem de boekdrukkunst uitvond.' },
       { name: 'Het Spaarne', type: 'label', x: 105, z: 106, labelY: 1.8, fact: 'Het Spaarne is de rivier van Haarlem. Hij maakt een echte S-bocht om de Burgwal heen, net als op de kaart.' },
       { name: 'Gravestenenbrug', type: 'label', x: 117, z: 67, labelY: 5.5, fact: 'De Gravestenenbrug is de witte ophaalbrug over het Spaarne, aan het einde van de Damstraat. Hij gaat open als er een bootje aankomt!' },
