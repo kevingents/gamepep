@@ -165,6 +165,31 @@ export const sfx = {
     if (!this.enabled) return
     ;[660, 880, 1100, 880, 1320].forEach((f, i) => tone(f, 0.09, 'sine', 0.1, i * 0.07))
   },
+  // miauw!
+  meow() {
+    if (!this.enabled) return
+    const c = getCtx()
+    if (!c) return
+    const t0 = c.currentTime
+    const osc = c.createOscillator()
+    const g = c.createGain()
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(620, t0)
+    osc.frequency.linearRampToValueAtTime(880, t0 + 0.12)
+    osc.frequency.linearRampToValueAtTime(520, t0 + 0.35)
+    g.gain.setValueAtTime(0.0001, t0)
+    g.gain.linearRampToValueAtTime(0.09, t0 + 0.05)
+    g.gain.linearRampToValueAtTime(0.0001, t0 + 0.38)
+    osc.connect(g).connect(c.destination)
+    osc.start(t0)
+    osc.stop(t0 + 0.4)
+  },
+  // woef woef!
+  woof() {
+    if (!this.enabled) return
+    tone(150, 0.09, 'sawtooth', 0.16)
+    tone(110, 0.1, 'sawtooth', 0.14, 0.13)
+  },
   // achtergrondmuziek: 'vrolijk' (rustig) of 'feest' (huisfeestje met dansbeat)
   musicStart(style) {
     if (musicTimer) return

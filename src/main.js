@@ -33,6 +33,7 @@ const START = (() => {
 const START_YAW = 0 // kijk naar het noorden, de stad in
 const TAG_TIME = 60
 const HIDE_TIME = 90
+const CHAR_SCALE = 0.62 // popjes zijn kleiner dan de huizen (kind-formaat)
 const POWERS = {
   radar: { dur: 8, t: 0, count: 0, color: 0x36d6e7 },
   speed: { dur: 5, t: 0, count: 0, color: 0xffd166 },
@@ -219,6 +220,7 @@ function buildCurrentCity() {
   }
   world = buildCity(worldGroup, GRID, CITIES[cityIndex])
   Object.assign(START, world.start)
+  spawnAmbients() // nieuwe passanten, katten en honden in de nieuwe stad
   shownFacts = new Set()
 }
 
@@ -348,6 +350,181 @@ function randomCfg() {
   return c
 }
 
+// de boef: zodra een kind 'm is, krijgt het een boevenpak (streepjes + masker)
+function makeBoef() {
+  const g = new THREE.Group()
+  const skin = new THREE.MeshLambertMaterial({ color: 0xe0a878 })
+  const black = new THREE.MeshLambertMaterial({ color: 0x16161e })
+  const white = new THREE.MeshLambertMaterial({ color: 0xf2f2f2 })
+  const hang = (w, h, d) => new THREE.BoxGeometry(w, h, d).translate(0, -h / 2, 0)
+  const lLeg = new THREE.Mesh(hang(0.3, 0.8, 0.34), black)
+  const rLeg = new THREE.Mesh(hang(0.3, 0.8, 0.34), black)
+  lLeg.position.set(-0.17, 0.8, 0)
+  rLeg.position.set(0.17, 0.8, 0)
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.72, 0.42), white)
+  body.position.set(0, 1.16, 0)
+  g.add(body)
+  for (const sy of [0.94, 1.18, 1.42]) {
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.12, 0.44), black)
+    stripe.position.set(0, sy, 0)
+    g.add(stripe)
+  }
+  const lArm = new THREE.Mesh(hang(0.22, 0.72, 0.3), white)
+  const rArm = new THREE.Mesh(hang(0.22, 0.72, 0.3), white)
+  lArm.position.set(-0.47, 1.52, 0)
+  rArm.position.set(0.47, 1.52, 0)
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.62, 0.62), skin)
+  head.position.set(0, 1.86, 0)
+  const mask = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.16, 0.66), black) // het boevenmasker
+  mask.position.set(0, 1.9, 0)
+  const lEye = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.04), white)
+  const rEye = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.04), white)
+  lEye.position.set(-0.14, 1.9, -0.34)
+  rEye.position.set(0.14, 1.9, -0.34)
+  const muts = new THREE.Mesh(new THREE.BoxGeometry(0.66, 0.22, 0.66), black)
+  muts.position.set(0, 2.22, 0)
+  g.add(lLeg, rLeg, lArm, rArm, head, mask, lEye, rEye, muts)
+  g.traverse((o) => {
+    if (o.isMesh) o.castShadow = true
+  })
+  g.userData = { lLeg, rLeg, lArm, rArm }
+  return g
+}
+function setNpcLook(n, boef) {
+  const old = n.mesh
+  const fresh = boef ? makeBoef() : makeCharacter(n.cfg)
+  fresh.scale.setScalar(CHAR_SCALE)
+  fresh.position.copy(old.position)
+  fresh.rotation.y = old.rotation.y
+  roundGroup.add(fresh)
+  roundGroup.remove(old)
+  n.mesh = fresh
+}
+
+// ---------- Passanten, katten en honden (sfeer in de stad) ----------
+let ambients = []
+function makeCat() {
+  const cols = [0x1c1c24, 0xf2f2f2, 0xd98a3d, 0x8a8f98]
+  const m = new THREE.MeshLambertMaterial({ color: cols[(Math.random() * cols.length) | 0] })
+  const g = new THREE.Group()
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.18, 0.55), m)
+  body.position.y = 0.2
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.18, 0.18), m)
+  head.position.set(0, 0.32, -0.32)
+  const e1 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.04), m)
+  const e2 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 0.04), m)
+  e1.position.set(-0.06, 0.45, -0.32)
+  e2.position.set(0.06, 0.45, -0.32)
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.3, 0.05), m)
+  tail.position.set(0, 0.38, 0.3)
+  tail.rotation.x = 0.5
+  for (const [px, pz] of [[-0.1, -0.18], [0.1, -0.18], [-0.1, 0.18], [0.1, 0.18]]) {
+    const p = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 0.06), m)
+    p.position.set(px, 0.06, pz)
+    g.add(p)
+  }
+  g.add(body, head, e1, e2, tail)
+  g.traverse((o) => {
+    if (o.isMesh) o.castShadow = true
+  })
+  g.userData = { tail }
+  return g
+}
+function makeDog() {
+  const cols = [0x8a5a33, 0x3c3744, 0xd9c49a, 0xb9774a]
+  const m = new THREE.MeshLambertMaterial({ color: cols[(Math.random() * cols.length) | 0] })
+  const g = new THREE.Group()
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.75), m)
+  body.position.y = 0.32
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.28, 0.28), m)
+  head.position.set(0, 0.55, -0.45)
+  const snout = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.12, 0.14), new THREE.MeshLambertMaterial({ color: 0x2b2b33 }))
+  snout.position.set(0, 0.48, -0.62)
+  const o1 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.18, 0.05), m)
+  const o2 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.18, 0.05), m)
+  o1.position.set(-0.16, 0.6, -0.42)
+  o2.position.set(0.16, 0.6, -0.42)
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.28, 0.06), m)
+  tail.position.set(0, 0.5, 0.4)
+  tail.rotation.x = 0.7
+  for (const [px, pz] of [[-0.13, -0.25], [0.13, -0.25], [-0.13, 0.25], [0.13, 0.25]]) {
+    const p = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.18, 0.09), m)
+    p.position.set(px, 0.09, pz)
+    g.add(p)
+  }
+  g.add(body, head, snout, o1, o2, tail)
+  g.traverse((o) => {
+    if (o.isMesh) o.castShadow = true
+  })
+  g.userData = { tail }
+  return g
+}
+function spawnAmbients() {
+  for (const a of ambients) scene.remove(a.mesh)
+  ambients = []
+  const taken = new Set()
+  for (let i = 0; i < 12; i++) {
+    const c = freeCell(taken)
+    if (!c) continue
+    const mesh = makeCharacter(randomCfg())
+    mesh.scale.setScalar(CHAR_SCALE)
+    mesh.position.set(c.x, 0, c.z)
+    scene.add(mesh)
+    ambients.push({ kind: 'mens', mesh, x: c.x, z: c.z, heading: Math.random() * 6.28, timer: 0, phase: Math.random() * 6, speed: 1.1 + Math.random() * 0.5, sndCool: 0 })
+  }
+  for (let i = 0; i < 6; i++) {
+    const c = freeCell(taken)
+    if (!c) continue
+    const isCat = i % 2 === 0
+    const mesh = isCat ? makeCat() : makeDog()
+    mesh.position.set(c.x, 0, c.z)
+    scene.add(mesh)
+    ambients.push({ kind: isCat ? 'kat' : 'hond', mesh, x: c.x, z: c.z, heading: Math.random() * 6.28, timer: 0, phase: Math.random() * 6, speed: isCat ? 1.9 : 2.3, sndCool: 0 })
+  }
+}
+function updateAmbients(dt) {
+  for (const a of ambients) {
+    a.timer -= dt
+    if (a.timer <= 0) {
+      a.heading = Math.random() * 6.28
+      a.timer = 1.5 + Math.random() * 3
+    }
+    const dx = Math.cos(a.heading) * a.speed * dt
+    const dz = Math.sin(a.heading) * a.speed * dt
+    const nx = clamp(a.x + dx, 1, GRID - 1)
+    const nz = clamp(a.z + dz, 1, GRID - 1)
+    if (!cellSolid(nx, nz)) {
+      a.x = nx
+      a.z = nz
+      a.mesh.rotation.y = Math.atan2(dx, -dz)
+    } else a.timer = 0
+    a.mesh.position.set(a.x, 0, a.z)
+    a.phase += dt * 8
+    const u = a.mesh.userData
+    if (a.kind === 'mens') {
+      const sw = Math.sin(a.phase) * 0.5
+      if (u.lLeg) {
+        u.lLeg.rotation.x = sw
+        u.rLeg.rotation.x = -sw
+        u.lArm.rotation.x = -sw
+        u.rArm.rotation.x = sw
+      }
+    } else if (u.tail) {
+      u.tail.rotation.z = Math.sin(a.phase) * 0.5 // kwispelen
+    }
+    if (a.sndCool > 0) a.sndCool -= dt
+    else if (status === 'playing' && a.kind !== 'mens') {
+      const pdx = a.x - steveX
+      const pdz = a.z - steveZ
+      if (pdx * pdx + pdz * pdz < 2.6 * 2.6) {
+        a.sndCool = 7
+        if (a.kind === 'kat') sfx.meow()
+        else sfx.woof()
+      }
+    }
+  }
+}
+
 // ---------- Ronde bouwen ----------
 function clearRound() {
   for (const child of [...roundGroup.children]) {
@@ -456,10 +633,11 @@ function spawnJune() {
   juneX = jx
   juneZ = jz
   june = makeJune()
+  june.scale.setScalar(0.75)
   june.position.set(jx, 0, jz)
   roundGroup.add(june)
   juneTag = makeTagSprite('June')
-  juneTag.position.set(jx, 2.8, jz)
+  juneTag.position.set(jx, 2.2, jz)
   roundGroup.add(juneTag)
 }
 // eten om te vangen: appel, banaan, flesje melk, koekje
@@ -571,6 +749,7 @@ function buildRound() {
       const c = freeCell(taken)
       if (!c) continue
       const m = makeCreeper()
+      m.scale.setScalar(0.8)
       m.position.set(c.x, 0, c.z)
       roundGroup.add(m)
       creepers.push({ mesh: m, x: c.x, z: c.z, heading: Math.random() * 6.28, timer: 0 })
@@ -597,10 +776,12 @@ function buildRound() {
         }
       } else c = freeCell(taken)
       if (!c) continue
-      const m = makeCharacter(randomCfg())
+      const kidCfg = randomCfg()
+      const m = makeCharacter(kidCfg)
+      m.scale.setScalar(CHAR_SCALE)
       m.position.set(c.x, 0, c.z)
       roundGroup.add(m)
-      npcs.push({ mesh: m, x: c.x, z: c.z, heading: Math.random() * 6.28, timer: 0, phase: 0, caught: false, it: false })
+      npcs.push({ mesh: m, cfg: kidCfg, x: c.x, z: c.z, heading: Math.random() * 6.28, timer: 0, phase: 0, caught: false, it: false })
     }
     timeLeft = mode === 'tag' ? tagLimit : Math.max(50, HIDE_TIME - 8 * (round - 1))
     if (mode === 'tag') {
@@ -618,6 +799,7 @@ function buildRound() {
   player.position.set(steveX, 0, steveZ)
   player.rotation.y = 0
   player.visible = false // first person: je eigen popje zie je niet
+  player.scale.setScalar(CHAR_SCALE)
   invuln = 0
   yaw = START_YAW
   faceX = Math.sin(yaw)
@@ -798,9 +980,10 @@ function checkCollisions() {
             score += 150
             sfx.coin()
             n.it = true
+            setNpcLook(n, true) // het kind wordt de boef!
             itIsPlayer = false
             spTagCool = 1.5
-            showToast('Getikt! Nu is het kind hem - ren weg!')
+            showToast('Getikt! Nu is het kind de boef - ren weg!')
             updateHud()
             if (myTags >= targetTags) roundClear()
             break
@@ -817,9 +1000,10 @@ function checkCollisions() {
             sfx.bonk()
             showHitFlash()
             it.it = false
+            setNpcLook(it, false) // boevenpak weer uit
             itIsPlayer = true
             spTagCool = 1.5
-            showToast('Je bent getikt! Nu ben jij hem')
+            showToast('De boef heeft je getikt! Nu ben jij hem')
             updateHud()
           }
         }
@@ -1033,6 +1217,7 @@ function startMultiplayer(code, isCreator) {
   faceX = Math.sin(yaw)
   faceZ = -Math.cos(yaw)
   player.visible = false
+  player.scale.setScalar(CHAR_SCALE)
   for (const k of POWER_KEYS) {
     POWERS[k].t = 0
     POWERS[k].count = 0
@@ -1070,6 +1255,7 @@ function clearRemotes() {
 }
 function addRemote(meta) {
   const mesh = makeCharacter(meta.cfg || {})
+  mesh.scale.setScalar(CHAR_SCALE)
   mesh.position.set(START.x, 0, START.z)
   scene.add(mesh)
   const tag = makeTagSprite(meta.name || 'Speler')
@@ -1101,7 +1287,7 @@ function updateRemote(rp, dt) {
     u.lArm.rotation.x = -sw
     u.rArm.rotation.x = sw
   }
-  rp.tag.position.set(rp.x, 2.9, rp.z)
+  rp.tag.position.set(rp.x, 1.95, rp.z)
 }
 function mpOnState(p) {
   if (!p || p.id === mpId) return
@@ -1259,8 +1445,9 @@ function showHitFlash() {
 // First person: de camera staat op ooghoogte op de speler en kijkt mee in de
 // looprichting, zodat je echt door de straten van Haarlem loopt.
 function firstPersonCam() {
-  const eye = POWERS.giant.t > 0 ? 4.8 : 1.6 // als reus kijk je over de huizen heen
-  const dip = POWERS.giant.t > 0 ? 2.4 : 0.4
+  // ooghoogte van een kind: de huizen en de stad voelen lekker groot
+  const eye = POWERS.giant.t > 0 ? 4.8 : 1.05
+  const dip = POWERS.giant.t > 0 ? 2.4 : 0.3
   camera.position.set(steveX, eye, steveZ)
   camera.lookAt(steveX + faceX * 2, eye - dip, steveZ + faceZ * 2)
 }
@@ -1457,6 +1644,7 @@ function showCreator() {
   $('nameInput').value = playerName
   buildCreatorUI()
   player.visible = true
+  player.scale.setScalar(1) // in de maker zie je je popje groot
   player.position.set(0, 0, 0)
   player.rotation.y = Math.PI // begin met je gezicht naar de camera
   setCreatorCam()
@@ -1822,6 +2010,7 @@ function frame(now) {
   last = now
   world.update(dt) // molenwieken, auto's, bruggen en trein draaien altijd
   sky.update(dt, camera.position.x, camera.position.z)
+  if (status !== 'creator') updateAmbients(dt) // passanten en dieren wandelen rond
   if (status === 'playing') {
     updatePlayer(dt)
     updateSunShadow(steveX, steveZ)
@@ -1937,7 +2126,7 @@ function frame(now) {
   if (nameTag) {
     const show = player.visible && (status === 'playing' || status === 'creator')
     nameTag.visible = show
-    if (show) nameTag.position.set(player.position.x, player.position.y + 2.9, player.position.z)
+    if (show) nameTag.position.set(player.position.x, player.position.y + (status === 'creator' ? 2.9 : 1.9), player.position.z)
   }
   renderer.render(scene, camera)
   requestAnimationFrame(frame)
@@ -1949,6 +2138,7 @@ function init() {
   applyQuality()
   updateMuteBtn()
   updateNameTag()
+  spawnAmbients()
   showIntro()
   requestAnimationFrame(frame)
 }
