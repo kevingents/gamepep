@@ -145,6 +145,70 @@ function drawMinimap() {
   mmCtx.fillText('N', S / 2 + nr * -Math.sin(yaw), S / 2 + nr * -Math.cos(yaw))
 }
 
+// Groot stadsplan: de hele stad in beeld met alle plekken benoemd en jouw
+// positie als rode pijl. Opent bij tikken op de minikaart (spel pauzeert).
+function drawBigMap() {
+  const cv = $('bigmapCanvas')
+  const ctx = cv.getContext('2d')
+  const S = cv.width
+  const src = world.minimap
+  if (!src) return
+  ctx.clearRect(0, 0, S, S)
+  ctx.imageSmoothingEnabled = true
+  ctx.drawImage(src, 0, 0, S, S)
+  const toMap = (wx, wz) => [(wx / GRID) * S, (wz / GRID) * S]
+  ctx.textAlign = 'center'
+  ctx.font = 'bold 13px sans-serif'
+  for (const lm of world.landmarks) {
+    const [px, py] = toMap(lm.x, lm.z)
+    const school = lm.name === 'Veronicaschool'
+    const home = lm.name === 'Lange Herenvest 16'
+    const txt = lm.name
+    const w = ctx.measureText(txt).width
+    ctx.fillStyle = 'rgba(12,16,28,0.74)'
+    ctx.fillRect(px - w / 2 - 5, py - 27, w + 10, 17)
+    ctx.fillStyle = '#fff'
+    ctx.fillText(txt, px, py - 15)
+    ctx.fillStyle = school ? '#36d6e7' : home ? '#9be15d' : '#ffd166'
+    ctx.beginPath()
+    ctx.arc(px, py, school || home ? 7 : 5, 0, 7)
+    ctx.fill()
+    ctx.strokeStyle = '#16161e'
+    ctx.lineWidth = 2
+    ctx.stroke()
+  }
+  // jouw positie als rode pijl in je kijkrichting
+  const [px, py] = toMap(steveX, steveZ)
+  ctx.save()
+  ctx.translate(px, py)
+  ctx.rotate(yaw)
+  ctx.fillStyle = '#ff3b3b'
+  ctx.strokeStyle = '#ffffff'
+  ctx.lineWidth = 2.5
+  ctx.beginPath()
+  ctx.moveTo(0, -14)
+  ctx.lineTo(9, 11)
+  ctx.lineTo(0, 5)
+  ctx.lineTo(-9, 11)
+  ctx.closePath()
+  ctx.fill()
+  ctx.stroke()
+  ctx.restore()
+}
+function openBigMap() {
+  if (status !== 'playing') return
+  resumeAudio()
+  status = 'map'
+  $('bigmapCity').textContent = CITIES[cityIndex].name
+  hideAllScreens()
+  drawBigMap()
+  $('bigmap').classList.add('show')
+}
+function closeBigMap() {
+  $('bigmap').classList.remove('show')
+  status = 'playing'
+}
+
 // ---------- Texturen (creeper-gezicht + gras) ----------
 function makeTexture(size, draw, repeat) {
   const c = document.createElement('canvas')
@@ -1890,6 +1954,7 @@ function hideAllScreens() {
   $('shopscreen').classList.remove('show')
   $('choresscreen').classList.remove('show')
   $('gatescreen').classList.remove('show')
+  $('bigmap').classList.remove('show')
 }
 // ---------- Schoolmenu, Schoolquiz en Winkel ----------
 function showSchoolMenu() {
@@ -2457,6 +2522,11 @@ $('btnSchoolBack').addEventListener('click', resumeRoam)
 $('btnQuiz').addEventListener('click', showQuiz)
 $('btnQuizStop').addEventListener('click', showSchoolMenu)
 $('btnShop2').addEventListener('click', () => showShop('school'))
+minimap.addEventListener('click', openBigMap)
+$('btnMapClose').addEventListener('click', closeBigMap)
+$('bigmap').addEventListener('click', (e) => {
+  if (e.target.id === 'bigmap') closeBigMap()
+})
 $('btnChores').addEventListener('click', showChores)
 $('btnChoresBack').addEventListener('click', showSchoolMenu)
 $('btnGateOk').addEventListener('click', checkGate)
