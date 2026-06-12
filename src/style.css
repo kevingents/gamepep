@@ -689,6 +689,22 @@ body {
   background: #6a3038;
   opacity: 0.6;
 }
+.gate-sum {
+  font-family: var(--arcade);
+  font-size: 26px;
+  color: var(--yellow);
+  margin: 6px 0 12px;
+}
+#gateInput {
+  font-size: 20px;
+  text-align: center;
+  width: 130px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 3px solid var(--accent);
+  background: #0c1426;
+  color: var(--text);
+}
 .shop-cat {
   font-family: var(--arcade);
   font-size: 11px;

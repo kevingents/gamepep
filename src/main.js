@@ -8,7 +8,7 @@ import { joinRoom, leaveRoom, sendState, sendFx, sendTag, makeCode, inRoom } fro
 import { createSky } from './sky.js'
 import { getPid, fetchHouses, claimHouse, ringBell, fetchRings } from './social.js'
 import { nextQuestion } from './edu.js'
-import { ADDONS, FLY_KEYS, SPEED_KEYS, getCoins, addCoins, getOwned, owns, buy, getActive, setActive } from './store.js'
+import { ADDONS, FLY_KEYS, SPEED_KEYS, CHORES, choreDoneToday, markChore, getCoins, addCoins, getOwned, owns, buy, getActive, setActive } from './store.js'
 
 // =====================================================================
 //  Diamant Haarlem - een 3D arcade-game in Minecraft-stijl.
@@ -1809,6 +1809,8 @@ function hideAllScreens() {
   $('schoolscreen').classList.remove('show')
   $('quizscreen').classList.remove('show')
   $('shopscreen').classList.remove('show')
+  $('choresscreen').classList.remove('show')
+  $('gatescreen').classList.remove('show')
 }
 // ---------- Schoolmenu, Schoolquiz en Winkel ----------
 function showSchoolMenu() {
@@ -1867,6 +1869,68 @@ function answerQuiz(i, btn) {
     btn.classList.add('fout')
     $('quizUitslag').textContent = 'Bijna! Probeer nog eens'
     $('quizUitslag').style.color = '#ff8a8a'
+  }
+}
+// ---------- Taakjes thuis (met ouder-goedkeuring) ----------
+let gateChore = null
+let gateAnswer = 0
+function showChores() {
+  resumeAudio()
+  status = 'chores'
+  setChrome(false)
+  hideAllScreens()
+  renderChores()
+  $('choresscreen').classList.add('show')
+}
+function renderChores() {
+  $('choresCoins').textContent = coins
+  const wrap = $('choresItems')
+  wrap.innerHTML = ''
+  for (const c of CHORES) {
+    const row = document.createElement('div')
+    row.className = 'shop-row'
+    const done = choreDoneToday(c.key)
+    row.innerHTML = '<div class="shop-info"><b>' + c.label + '</b><span>+' + c.munten + ' munten</span></div>'
+    const btn = document.createElement('button')
+    btn.className = 'arcade-btn small-btn'
+    if (done) {
+      btn.textContent = 'GEDAAN'
+      btn.classList.add('on')
+      btn.disabled = true
+    } else {
+      btn.textContent = 'KLAAR'
+      btn.onclick = () => openGate(c)
+    }
+    row.appendChild(btn)
+    wrap.appendChild(row)
+  }
+}
+function openGate(chore) {
+  gateChore = chore
+  const a = 11 + ((Math.random() * 9) | 0)
+  const b = 12 + ((Math.random() * 8) | 0)
+  gateAnswer = a * b
+  status = 'gate'
+  hideAllScreens()
+  $('gateTaak').textContent = chore.label
+  $('gateSum').textContent = a + ' × ' + b + ' = ?'
+  $('gateInput').value = ''
+  $('gateMsg').textContent = ''
+  $('gatescreen').classList.add('show')
+  setTimeout(() => $('gateInput').focus(), 120)
+}
+function checkGate() {
+  if (parseInt($('gateInput').value, 10) === gateAnswer) {
+    markChore(gateChore.key)
+    earnCoins(gateChore.munten)
+    sfx.win()
+    showToast('Goedgekeurd! ' + gateChore.label + ': +' + gateChore.munten + ' munten')
+    showChores()
+  } else {
+    sfx.bonk()
+    $('gateMsg').textContent = 'Dat klopt niet - vraag papa of mama.'
+    $('gateInput').value = ''
+    $('gateInput').focus()
   }
 }
 let shopReturn = 'intro'
@@ -2313,6 +2377,13 @@ $('btnSchoolBack').addEventListener('click', resumeRoam)
 $('btnQuiz').addEventListener('click', showQuiz)
 $('btnQuizStop').addEventListener('click', showSchoolMenu)
 $('btnShop2').addEventListener('click', () => showShop('school'))
+$('btnChores').addEventListener('click', showChores)
+$('btnChoresBack').addEventListener('click', showSchoolMenu)
+$('btnGateOk').addEventListener('click', checkGate)
+$('btnGateCancel').addEventListener('click', showChores)
+$('gateInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') checkGate()
+})
 $('btnShopBack').addEventListener('click', () => (shopReturn === 'school' ? showSchoolMenu() : showIntro()))
 {
   const flyBtn = $('btnFly')

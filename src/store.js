@@ -65,6 +65,42 @@ export const ADDONS = [
 export const FLY_KEYS = ['vleugels', 'vleerm_vleugels', 'vlinder_vleugels', 'draak_vleugels', 'fee_vleugels', 'jetpack']
 export const SPEED_KEYS = ['schoenen', 'rolschaatsen', 'springschoenen']
 
+// Echte klusjes thuis. Goedkeuren doet een ouder met een moeilijke som.
+// Elke taak kan 1x per dag worden goedgekeurd.
+export const CHORES = [
+  { key: 'kamer', label: 'Mijn kamer opruimen', munten: 40 },
+  { key: 'speelgoed', label: 'Mijn speelgoed opruimen', munten: 25 },
+  { key: 'bed', label: 'Mijn bed opmaken', munten: 20 },
+  { key: 'tafel', label: 'De tafel dekken', munten: 20 },
+  { key: 'afwas', label: 'Helpen met de afwas', munten: 25 },
+  { key: 'tanden', label: 'Tanden poetsen', munten: 15 },
+  { key: 'stofzuigen', label: 'Helpen met stofzuigen', munten: 30 },
+  { key: 'dieren', label: 'De dieren eten geven', munten: 25 },
+  { key: 'vuilnis', label: 'De vuilnis wegbrengen', munten: 20 },
+  { key: 'jas', label: 'Mijn jas en schoenen opruimen', munten: 15 },
+  { key: 'lezen', label: 'Lezen of huiswerk maken', munten: 25 },
+  { key: 'lief', label: 'Iemand helpen of lief zijn', munten: 20 },
+]
+const CHORE_KEY = 'haarlem_taken'
+function todayStr() {
+  const d = new Date()
+  return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate()
+}
+export function choreDoneToday(key) {
+  try {
+    return (JSON.parse(localStorage.getItem(CHORE_KEY) || '{}') || {})[key] === todayStr()
+  } catch (e) {
+    return false
+  }
+}
+export function markChore(key) {
+  try {
+    const m = JSON.parse(localStorage.getItem(CHORE_KEY) || '{}') || {}
+    m[key] = todayStr()
+    localStorage.setItem(CHORE_KEY, JSON.stringify(m))
+  } catch (e) {}
+}
+
 export function getCoins() {
   try {
     return parseInt(localStorage.getItem(COIN_KEY) || '0', 10) || 0

@@ -55,6 +55,7 @@
             <button class="arcade-btn" id="btnHide">VERSTOPPERTJE</button>
             <button class="arcade-btn" id="btnBaby">DE EETBABY</button>
             <button class="arcade-btn" id="btnQuiz">SCHOOLQUIZ (munten)</button>
+            <button class="arcade-btn" id="btnChores">TAAKJES THUIS</button>
             <button class="arcade-btn alt" id="btnShop2">WINKEL</button>
             <button class="arcade-btn alt" id="btnSchoolBack">TERUG NAAR BUITEN</button>
           </div>
@@ -68,6 +69,33 @@
             <div id="quizOpts"></div>
             <p class="quiz-uitslag" id="quizUitslag"></p>
             <button class="arcade-btn alt" id="btnQuizStop">STOPPEN</button>
+          </div>
+        </div>
+
+        <!-- Taakjes thuis -->
+        <div id="choresscreen" class="screen">
+          <div class="arcade">
+            <h1 class="arcade-title small">TAAKJES THUIS</h1>
+            <p class="arcade-coins">Munten: <b id="choresCoins">0</b></p>
+            <p class="arcade-sub">Doe een klusje thuis. Vraag daarna papa of mama om het goed te keuren!</p>
+            <div id="choresItems"></div>
+            <button class="arcade-btn alt" id="btnChoresBack">TERUG</button>
+          </div>
+        </div>
+
+        <!-- Ouder-slot: goedkeuren met een moeilijke som -->
+        <div id="gatescreen" class="screen">
+          <div class="arcade">
+            <h1 class="arcade-title small">ALLEEN VOOR PAPA OF MAMA</h1>
+            <p class="arcade-sub">Klusje: <b id="gateTaak"></b></p>
+            <p class="arcade-pick">Los de som op om goed te keuren:</p>
+            <p class="gate-sum" id="gateSum">12 × 13 = ?</p>
+            <div class="initials-row">
+              <input id="gateInput" type="number" inputmode="numeric" placeholder="antwoord" autocomplete="off" />
+              <button class="arcade-btn small-btn" id="btnGateOk">GOEDKEUREN</button>
+            </div>
+            <p class="quiz-uitslag" id="gateMsg"></p>
+            <button class="arcade-btn alt" id="btnGateCancel">ANNULEREN</button>
           </div>
         </div>
 
