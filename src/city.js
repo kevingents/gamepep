@@ -543,10 +543,12 @@ export function buildCity(group, GRID, city) {
   const rdAt = (x, z) => (x < 0 || z < 0 || x >= GRID || z >= GRID ? 99 : rd[cellIdx(x, z)])
 
   // basis-bouwstenen voor water (1 cel water = niet beloopbaar)
+  const waterCells = new Set() // voor de minikaart
   const water = (x, z) => {
     if (x < 0 || z < 0 || x >= GRID || z >= GRID) return
     box('#3aa0d8', 1, 0.12, 1, x + 0.5, 0, z + 0.5)
     solids.add(x + ',' + z)
+    waterCells.add(x + ',' + z)
   }
   const deckCell = (x, z) => box('#9a6a3e', 1.1, 0.07, 1.1, x + 0.5, 0.04, z + 0.5)
 
@@ -1132,10 +1134,31 @@ export function buildCity(group, GRID, city) {
     group.add(m)
   }
 
+  // ---- Minikaart (bovenaanzicht van de stad) voor de GTA-stijl kaart ----
+  const MS = 2 // pixels per cel
+  const miniCanvas = document.createElement('canvas')
+  miniCanvas.width = GRID * MS
+  miniCanvas.height = GRID * MS
+  {
+    const mg = miniCanvas.getContext('2d')
+    mg.fillStyle = '#6fae54' // gras/land
+    mg.fillRect(0, 0, miniCanvas.width, miniCanvas.height)
+    for (let x = 0; x < GRID; x++) {
+      for (let z = 0; z < GRID; z++) {
+        if (waterCells.has(x + ',' + z)) mg.fillStyle = '#3aa0d8'
+        else if (rd[cellIdx(x, z)] === 0) mg.fillStyle = '#8f96a3' // weg
+        else continue
+        mg.fillRect(x * MS, z * MS, MS, MS)
+      }
+    }
+  }
+
   return {
     solids,
     houses,
     landmarks,
+    minimap: miniCanvas,
+    miniScale: MS,
     start: city.start || START,
     drawbridges,
     train,

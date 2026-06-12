@@ -65,6 +65,69 @@ const coinIcon =
   '<svg viewBox="0 0 24 24" class="icon"><circle cx="12" cy="12" r="9" fill="#ffd700" stroke="#b8992a" stroke-width="2"/><text x="12" y="16" font-size="11" font-weight="bold" text-anchor="middle" fill="#8a6a00">€</text></svg>'
 const muteBtn = document.getElementById('mute')
 const $ = (id) => document.getElementById(id)
+const minimap = document.getElementById('minimap')
+const mmCtx = minimap.getContext('2d')
+let mmT = 0
+// GTA-stijl minikaart: jij in het midden als pijltje, de stad eromheen,
+// met stippen voor de school, jullie huis, June en landmarks.
+function drawMinimap() {
+  const S = 120
+  const R = 34 // hoeveel wereld je ziet (straal)
+  const src = world.minimap
+  if (!src) return
+  const MS = world.miniScale || 2
+  mmCtx.clearRect(0, 0, S, S)
+  mmCtx.save()
+  mmCtx.beginPath()
+  mmCtx.arc(S / 2, S / 2, S / 2, 0, 7)
+  mmCtx.clip()
+  mmCtx.imageSmoothingEnabled = false
+  mmCtx.drawImage(src, (steveX - R) * MS, (steveZ - R) * MS, R * 2 * MS, R * 2 * MS, 0, 0, S, S)
+  const dot = (wx, wz, color, r) => {
+    const px = S / 2 + ((wx - steveX) / R) * (S / 2)
+    const py = S / 2 + ((wz - steveZ) / R) * (S / 2)
+    mmCtx.fillStyle = color
+    mmCtx.beginPath()
+    mmCtx.arc(px, py, r, 0, 7)
+    mmCtx.fill()
+    mmCtx.strokeStyle = '#16161e'
+    mmCtx.lineWidth = 1
+    mmCtx.stroke()
+  }
+  for (const lm of world.landmarks) {
+    if (Math.abs(lm.x - steveX) > R || Math.abs(lm.z - steveZ) > R) continue
+    const school = lm.name === 'Veronicaschool'
+    const home = lm.name === 'Lange Herenvest 16'
+    dot(lm.x, lm.z, school ? '#36d6e7' : home ? '#9be15d' : '#ffd166', school || home ? 4 : 3)
+  }
+  if (mode === 'baby' && june) dot(juneX, juneZ, '#ff7ab6', 4)
+  for (const id in mpPlayers) {
+    const rp = mpPlayers[id]
+    if (Math.abs(rp.x - steveX) <= R && Math.abs(rp.z - steveZ) <= R) dot(rp.x, rp.z, '#ff5bb0', 3)
+  }
+  mmCtx.restore()
+  // speler-pijl in het midden, wijst in je kijkrichting
+  mmCtx.save()
+  mmCtx.translate(S / 2, S / 2)
+  mmCtx.rotate(yaw)
+  mmCtx.fillStyle = '#ffffff'
+  mmCtx.strokeStyle = '#16161e'
+  mmCtx.lineWidth = 1.5
+  mmCtx.beginPath()
+  mmCtx.moveTo(0, -7)
+  mmCtx.lineTo(5, 6)
+  mmCtx.lineTo(0, 3)
+  mmCtx.lineTo(-5, 6)
+  mmCtx.closePath()
+  mmCtx.fill()
+  mmCtx.stroke()
+  mmCtx.restore()
+  // noord-aanduiding
+  mmCtx.fillStyle = 'rgba(255,255,255,0.9)'
+  mmCtx.font = 'bold 11px sans-serif'
+  mmCtx.textAlign = 'center'
+  mmCtx.fillText('N', S / 2, 13)
+}
 
 // ---------- Texturen (creeper-gezicht + gras) ----------
 function makeTexture(size, draw, repeat) {
@@ -2016,6 +2079,7 @@ function setChrome(v) {
   document.getElementById('hud').style.visibility = vis
   document.getElementById('actions').style.visibility = vis
   document.getElementById('joystick').style.visibility = vis
+  minimap.style.display = v ? 'block' : 'none'
 }
 function showIntro() {
   status = 'intro'
@@ -2540,6 +2604,11 @@ function frame(now) {
   if (status === 'playing') {
     updatePlayer(dt)
     updateSunShadow(steveX, steveZ)
+    mmT -= dt
+    if (mmT <= 0) {
+      mmT = 0.12
+      drawMinimap()
+    }
     if (mode === 'mp') {
       updateMultiplayer(dt)
     } else if (mode === 'diamond') {

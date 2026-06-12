@@ -653,6 +653,20 @@ body {
   box-shadow: 0 1px 0 #b8992a;
 }
 
+/* ---------- Minikaart (GTA-stijl) ---------- */
+#minimap {
+  position: absolute;
+  top: calc(58px + env(safe-area-inset-top));
+  left: calc(10px + env(safe-area-inset-left));
+  width: 116px;
+  height: 116px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  background: #6fae54;
+  z-index: 22;
+}
+
 .school-btn {
   background: #36d6e7;
   box-shadow: 0 4px 0 #1a9fb0;
