@@ -466,8 +466,91 @@ function setNpcLook(n, boef) {
   n.mesh = fresh
 }
 
+// niemand loopt door muren: check een blokje rondom (net als de speler)
+function areaFree(x, z, r) {
+  return !cellSolid(x - r, z - r) && !cellSolid(x + r, z - r) && !cellSolid(x - r, z + r) && !cellSolid(x + r, z + r)
+}
+
 // ---------- Passanten, katten en honden (sfeer in de stad) ----------
 let ambients = []
+let chatGlobalCool = 0
+const GREETS = ['Hoi!', 'Goedemorgen!', 'Mooi weer, he?', 'Wat een leuk popje ben jij!', 'Ik ga even naar de markt', 'Pas op voor de boef!', 'Tot ziens!', 'Heb je de trein al gezien?']
+const JOKES = [
+  'Wat is geel en kan niet zwemmen? Een shovel!',
+  'Hoe noem je een vlieg zonder vleugels? Een loop!',
+  'Wat zegt een slak op een schildpad? Huuui, wat gaan we snel!',
+  'Waarom nam de banaan zonnebrand mee? Anders zou hij pellen!',
+  'Wat zegt de ene muur tegen de andere? We zien elkaar op de hoek!',
+  'Welke vis kan niet zwemmen? Een zaagvis in de boom!',
+]
+function secretTip() {
+  const open = secrets.filter((s) => !s.taken)
+  if (!open.length) return null
+  const s = open[(Math.random() * open.length) | 0]
+  const dx = s.x - steveX
+  const dz = s.z - steveZ
+  const richting = Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? 'het oosten' : 'het westen') : (dz > 0 ? 'het zuiden' : 'het noorden')
+  const ver = Math.hypot(dx, dz) > 40 ? 'heel ver' : 'niet zo ver'
+  const wat = s.kind === 'gold' ? 'iets gouds zien glimmen' : 'een schatkist gezien'
+  return 'Psst... ik heb ' + wat + ', ' + ver + ' naar ' + richting + '!'
+}
+function makeBubble(text) {
+  const fs = 24
+  const pad = 14
+  const tmp = document.createElement('canvas').getContext('2d')
+  tmp.font = 'bold ' + fs + 'px Trebuchet MS, Arial, sans-serif'
+  const words = text.split(' ')
+  const lines = ['']
+  for (const w of words) {
+    const probe = (lines[lines.length - 1] + ' ' + w).trim()
+    if (tmp.measureText(probe).width > 280 && lines[lines.length - 1]) lines.push(w)
+    else lines[lines.length - 1] = probe
+  }
+  const width = Math.ceil(Math.max(...lines.map((l) => tmp.measureText(l).width)) + pad * 2)
+  const height = lines.length * (fs + 6) + pad * 2 - 6
+  const c = document.createElement('canvas')
+  c.width = width
+  c.height = height
+  const g2 = c.getContext('2d')
+  g2.font = 'bold ' + fs + 'px Trebuchet MS, Arial, sans-serif'
+  const r = 12
+  g2.fillStyle = 'rgba(255,255,255,0.96)'
+  g2.beginPath()
+  g2.moveTo(r, 0)
+  g2.arcTo(width, 0, width, height, r)
+  g2.arcTo(width, height, 0, height, r)
+  g2.arcTo(0, height, 0, 0, r)
+  g2.arcTo(0, 0, width, 0, r)
+  g2.closePath()
+  g2.fill()
+  g2.strokeStyle = '#2a2f3a'
+  g2.lineWidth = 3
+  g2.stroke()
+  g2.fillStyle = '#1b2230'
+  g2.textAlign = 'center'
+  g2.textBaseline = 'middle'
+  lines.forEach((l, i) => g2.fillText(l, width / 2, pad + 4 + i * (fs + 6) + fs / 2 - 6))
+  const tex = new THREE.CanvasTexture(c)
+  tex.minFilter = THREE.LinearFilter
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }))
+  spr.renderOrder = 1000
+  const bh = 0.42 * lines.length + 0.18
+  spr.scale.set((bh * width) / height, bh, 1)
+  return spr
+}
+function walkerSay(a) {
+  let txt = null
+  const r = Math.random()
+  if (r < 0.3) txt = secretTip()
+  if (!txt && r < 0.65) txt = JOKES[(Math.random() * JOKES.length) | 0]
+  if (!txt) txt = GREETS[(Math.random() * GREETS.length) | 0]
+  if (a.bubble) scene.remove(a.bubble)
+  a.bubble = makeBubble(txt)
+  a.bubble.position.set(a.x, 1.8, a.z)
+  scene.add(a.bubble)
+  a.bubbleT = 4.5
+  sfx.chat()
+}
 function makeCat() {
   const cols = [0x1c1c24, 0xf2f2f2, 0xd98a3d, 0x8a8f98]
   const m = new THREE.MeshLambertMaterial({ color: cols[(Math.random() * cols.length) | 0] })
@@ -525,30 +608,46 @@ function makeDog() {
   return g
 }
 function spawnAmbients() {
-  for (const a of ambients) scene.remove(a.mesh)
+  for (const a of ambients) {
+    scene.remove(a.mesh)
+    if (a.bubble) scene.remove(a.bubble)
+  }
   ambients = []
   const taken = new Set()
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 20; i++) {
     const c = freeCell(taken)
     if (!c) continue
     const mesh = makeCharacter(randomCfg())
     mesh.scale.setScalar(CHAR_SCALE)
     mesh.position.set(c.x, 0, c.z)
     scene.add(mesh)
-    ambients.push({ kind: 'mens', mesh, x: c.x, z: c.z, heading: Math.random() * 6.28, timer: 0, phase: Math.random() * 6, speed: 1.1 + Math.random() * 0.5, sndCool: 0 })
+    ambients.push({ kind: 'mens', mesh, x: c.x, z: c.z, heading: Math.random() * 6.28, timer: 0, phase: Math.random() * 6, speed: 1.1 + Math.random() * 0.5, sndCool: 0, chatCool: Math.random() * 10, bubble: null, bubbleT: 0 })
   }
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 8; i++) {
     const c = freeCell(taken)
     if (!c) continue
     const isCat = i % 2 === 0
     const mesh = isCat ? makeCat() : makeDog()
     mesh.position.set(c.x, 0, c.z)
     scene.add(mesh)
-    ambients.push({ kind: isCat ? 'kat' : 'hond', mesh, x: c.x, z: c.z, heading: Math.random() * 6.28, timer: 0, phase: Math.random() * 6, speed: isCat ? 1.9 : 2.3, sndCool: 0 })
+    ambients.push({ kind: isCat ? 'kat' : 'hond', mesh, x: c.x, z: c.z, heading: Math.random() * 6.28, timer: 0, phase: Math.random() * 6, speed: isCat ? 1.9 : 2.3, sndCool: 0, chatCool: 0, bubble: null, bubbleT: 0 })
   }
 }
 function updateAmbients(dt) {
+  if (chatGlobalCool > 0) chatGlobalCool -= dt
   for (const a of ambients) {
+    // even blijven staan tijdens het praten, met je gezicht naar de speler
+    if (a.bubbleT > 0) {
+      a.bubbleT -= dt
+      if (a.bubbleT <= 0 && a.bubble) {
+        scene.remove(a.bubble)
+        a.bubble = null
+      } else if (a.bubble) {
+        a.bubble.position.set(a.x, 1.8, a.z)
+        a.mesh.rotation.y = Math.atan2(steveX - a.x, -(steveZ - a.z))
+        continue
+      }
+    }
     a.timer -= dt
     if (a.timer <= 0) {
       a.heading = Math.random() * 6.28
@@ -558,7 +657,7 @@ function updateAmbients(dt) {
     const dz = Math.sin(a.heading) * a.speed * dt
     const nx = clamp(a.x + dx, 1, GRID - 1)
     const nz = clamp(a.z + dz, 1, GRID - 1)
-    if (!cellSolid(nx, nz)) {
+    if (areaFree(nx, nz, 0.3)) {
       a.x = nx
       a.z = nz
       a.mesh.rotation.y = Math.atan2(dx, -dz)
@@ -577,15 +676,23 @@ function updateAmbients(dt) {
     } else if (u.tail) {
       u.tail.rotation.z = Math.sin(a.phase) * 0.5 // kwispelen
     }
+    if (a.chatCool > 0) a.chatCool -= dt
     if (a.sndCool > 0) a.sndCool -= dt
-    else if (status === 'playing' && a.kind !== 'mens') {
-      const pdx = a.x - steveX
-      const pdz = a.z - steveZ
-      if (pdx * pdx + pdz * pdz < 2.6 * 2.6) {
-        a.sndCool = 7
-        if (a.kind === 'kat') sfx.meow()
-        else sfx.woof()
+    if (status !== 'playing') continue
+    const pdx = a.x - steveX
+    const pdz = a.z - steveZ
+    const dicht = pdx * pdx + pdz * pdz < 2.4 * 2.4
+    if (a.kind === 'mens') {
+      // passanten zeggen hoi, vertellen een mop of verklappen een geheim
+      if (dicht && a.chatCool <= 0 && chatGlobalCool <= 0) {
+        a.chatCool = 20 + Math.random() * 15
+        chatGlobalCool = 5
+        walkerSay(a)
       }
+    } else if (a.sndCool <= 0 && dicht) {
+      a.sndCool = 7
+      if (a.kind === 'kat') sfx.meow()
+      else sfx.woof()
     }
   }
 }
@@ -937,7 +1044,7 @@ function updateCreepers(dt) {
     const dz = Math.sin(c.heading) * spd * dt
     const nx = clamp(c.x + dx, 0.6, GRID - 0.6)
     const nz = clamp(c.z + dz, 0.6, GRID - 0.6)
-    if (!cellSolid(nx, nz)) {
+    if (areaFree(nx, nz, 0.28)) {
       c.x = nx
       c.z = nz
     } else {
@@ -975,9 +1082,9 @@ function updateNPCs(dt) {
       }
       const sp = STEVE_SPEED * speedF * dt
       const nx = clamp(n.x + mvx * sp, 0.6, GRID - 0.6)
-      if (!cellSolid(nx, n.z)) n.x = nx
+      if (areaFree(nx, n.z, 0.26)) n.x = nx
       const nz = clamp(n.z + mvz * sp, 0.6, GRID - 0.6)
-      if (!cellSolid(n.x, nz)) n.z = nz
+      if (areaFree(n.x, nz, 0.26)) n.z = nz
       n.mesh.rotation.y = Math.atan2(mvx, -mvz)
       n.phase += dt * 10
       const sw = Math.sin(n.phase) * 0.6

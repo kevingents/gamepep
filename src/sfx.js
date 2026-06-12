@@ -196,6 +196,13 @@ export const sfx = {
     tone(659, 0.3, 'sine', 0.16)
     tone(523, 0.45, 'sine', 0.16, 0.32)
   },
+  // praat-blipjes van een passant
+  chat() {
+    if (!this.enabled) return
+    tone(740, 0.05, 'square', 0.05)
+    tone(880, 0.05, 'square', 0.05, 0.07)
+    tone(660, 0.06, 'square', 0.05, 0.14)
+  },
   // achtergrondmuziek: 'vrolijk' (rustig) of 'feest' (huisfeestje met dansbeat)
   musicStart(style) {
     if (musicTimer) return
