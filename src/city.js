@@ -54,7 +54,176 @@ function buildLandmark(ctx, lm) {
   const x = lm.x
   const z = lm.z
   const o = lm.opts || {}
+  // zadeldak/fronton uit twee schuine vlakken (langs 'z' = nok langs z)
+  const gableRoof = (cx, cz, w, l, H, rise, along, color) => {
+    const m = matOf(color)
+    const half = w / 2
+    const slopeW = Math.hypot(half, rise)
+    const phi = Math.atan2(rise, half)
+    for (const sgn of [-1, 1]) {
+      let mesh
+      if (along === 'z') {
+        mesh = new THREE.Mesh(new THREE.BoxGeometry(slopeW, 0.22, l), m)
+        mesh.position.set(cx + sgn * (half / 2), H + rise / 2, cz)
+        mesh.rotation.z = -sgn * phi
+      } else {
+        mesh = new THREE.Mesh(new THREE.BoxGeometry(l, 0.22, slopeW), m)
+        mesh.position.set(cx, H + rise / 2, cz + sgn * (half / 2))
+        mesh.rotation.x = sgn * phi
+      }
+      mesh.castShadow = true
+      mesh.receiveShadow = true
+      group.add(mesh)
+    }
+  }
   switch (lm.type) {
+    case 'bavo': {
+      // Sint-Bavokerk (Grote Kerk): groot gotisch kruis met de wereldberoemde
+      // grijze vieringtoren (lantaarn + spits + gouden kroon).
+      const wall = '#cabfa6'
+      const trim = '#b3a888'
+      const roof = '#474c54'
+      const tower = '#9aa3ad'
+      const tower2 = '#7e8893'
+      solidRect(Math.floor(x) - 3, Math.floor(z) - 4, 7, 9)
+      // schip (lang langs z) + dwarsschip (langs x) = kruisvorm
+      box(wall, 4, 7, 8, x, 0, z)
+      box(wall, 7, 6, 3.2, x, 0, z)
+      gableRoof(x, z, 4, 8, 7, 3, 'z', roof)
+      gableRoof(x, z, 3.2, 7, 6, 2.2, 'x', roof)
+      // steunberen met pinakels langs het schip
+      for (const sx of [-2.1, 2.1])
+        for (const pz of [-3.2, -1.1, 1.1, 3.2]) {
+          box(trim, 0.4, 5.4, 0.5, x + sx, 0, z + pz)
+          cone(tower2, 0.32, 0.9, x + sx, 5.4, z + pz, 4)
+        }
+      // hoge spitsboogramen (donker glas, lichte omlijsting)
+      for (const sx of [-2.04, 2.04])
+        for (const wz of [-2.2, 0, 2.2]) {
+          box('#e8dcc0', 0.1, 3.4, 0.96, x + sx, 1.3, z + wz)
+          box('#2b3a4a', 0.16, 3.0, 0.66, x + sx, 1.4, z + wz)
+        }
+      // ---- de vieringtoren ----
+      box(tower, 3, 11, 3, x, 0, z)
+      box(trim, 3.3, 0.5, 3.3, x, 10.6, z)
+      for (const [cx, cz] of [[-1.4, -1.4], [1.4, -1.4], [-1.4, 1.4], [1.4, 1.4]]) cone(tower2, 0.34, 1.5, x + cx, 10.8, z + cz, 4)
+      cyl(tower, 1.55, 3.4, x, 11, z, 8) // achthoekige lantaarn
+      for (const a of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) box('#33414f', 0.5, 2.2, 0.2, x + Math.sin(a) * 1.45, 11.6, z + Math.cos(a) * 1.45)
+      cyl(trim, 1.7, 0.4, x, 14.4, z, 8)
+      cyl(tower2, 1.05, 2.2, x, 14.8, z, 8)
+      cone(tower, 1.0, 4.4, x, 17, z, 8) // hoge spits
+      box('#ffd700', 0.5, 0.7, 0.5, x, 21.4, z) // gouden kroon
+      cone('#ffd700', 0.4, 0.7, x, 22.1, z, 8)
+      break
+    }
+    case 'stadhuis': {
+      // Stadhuis Haarlem: gotische baksteen met grote trapgevel aan de markt,
+      // open booggalerij (loggia), hoektoren met klok en wapperende vlaggen.
+      const brick = o.color || '#9c4a38'
+      const trim = '#e6dcc4'
+      const roof = '#4a4f57'
+      const glass = '#33414f'
+      solidRect(Math.floor(x) - 2, Math.floor(z) - 2, 5, 4)
+      box(brick, 5, 4.2, 4, x, 0, z)
+      gableRoof(x, z, 4, 5, 4.2, 1.8, 'x', roof)
+      // sierlijke trapgevel aan de marktzijde (+x)
+      const gx = x + 2.5
+      let gw = 4
+      let gy = 4.2
+      for (let s = 0; s < 5; s++) {
+        box(brick, 0.5, 0.6, gw, gx, gy, z)
+        box(trim, 0.54, 0.12, gw, gx, gy + 0.6, z)
+        gw -= 0.66
+        gy += 0.52
+      }
+      cone('#7a3f24', 0.3, 0.8, gx, gy, z, 4)
+      // loggia: rij zuiltjes met een lichte architraaf
+      for (let i = 0; i < 4; i++) box(trim, 0.32, 2.4, 0.32, x + 2.42, 0, z - 1.4 + i * 0.95)
+      box(trim, 0.42, 0.5, 4, x + 2.42, 2.4, z)
+      // hoge ramen op de gevel
+      for (const wz of [-1.2, 0, 1.2]) {
+        box(trim, 0.1, 2.2, 0.74, x + 2.55, 1.4, z + wz)
+        box(glass, 0.14, 1.9, 0.52, x + 2.55, 1.5, z + wz)
+      }
+      // hoektoren met wijzerplaat en spits
+      box(brick, 1.3, 6.2, 1.3, x - 2.1, 0, z - 1.9)
+      box(trim, 1.5, 0.4, 1.5, x - 2.1, 6.0, z - 1.9)
+      box('#f4f1e8', 0.72, 0.72, 0.12, x - 2.1, 4.5, z - 2.57)
+      box('#1f2733', 0.5, 0.08, 0.14, x - 2.1, 4.86, z - 2.6)
+      box('#1f2733', 0.08, 0.42, 0.14, x - 2.1, 4.7, z - 2.6)
+      cone('#3f5e7d', 1.0, 2.6, x - 2.1, 6.4, z - 1.9, 4)
+      box('#ffd700', 0.18, 0.5, 0.18, x - 2.1, 9.0, z - 1.9)
+      // vlaggen op het dak (Haarlemse kleuren)
+      for (const fx of [-1, 1]) {
+        box('#caa23a', 0.07, 1.7, 0.07, x + fx, 5.0, z)
+        box(fx < 0 ? '#e63946' : '#f4f1e8', 0.55, 0.36, 0.04, x + fx + 0.3, 6.1, z)
+      }
+      break
+    }
+    case 'teylers': {
+      // Teylers Museum: neoklassieke zandstenen gevel met zuilengalerij en
+      // fronton aan het Spaarne, en de ronde Ovale Zaal met koepel erachter.
+      const stone = o.color || '#d3c6a2'
+      const trim = '#e7ddc4'
+      const glass = '#33414f'
+      const dome = '#3f7d6e'
+      solidRect(Math.floor(x) - 3, Math.floor(z) - 2, 6, 4)
+      box(stone, 6, 3.6, 3.6, x, 0, z)
+      box(trim, 6.4, 0.5, 4.0, x, 3.6, z) // kroonlijst
+      box(stone, 5.4, 0.7, 3.4, x, 4.1, z) // attiek
+      // portico met zuilen aan de Spaarnezijde (-z)
+      const fz = z - 2.1
+      for (let i = 0; i < 6; i++) cyl(trim, 0.24, 3.2, x - 2.5 + i, 0, fz, 10)
+      box(trim, 6, 0.5, 0.8, x, 3.2, fz) // architraaf
+      gableRoof(x, fz, 1.7, 6, 3.7, 1.2, 'x', trim) // fronton (driehoek)
+      // hoge rondboogramen
+      for (let i = 0; i < 4; i++) {
+        const wx = x - 2.1 + i * 1.4
+        box(glass, 0.74, 2.2, 0.16, wx, 0.8, z - 1.84)
+        box(trim, 0.9, 0.2, 0.18, wx, 3.0, z - 1.84)
+      }
+      // bordestrap
+      box(trim, 6, 0.2, 0.6, x, 0, fz - 0.5)
+      box(trim, 5.4, 0.2, 0.4, x, 0.2, fz - 0.3)
+      // Ovale Zaal met koepel
+      cyl(stone, 1.8, 1.2, x, 0, z + 1.5, 14)
+      cyl(dome, 1.85, 0.3, x, 1.2, z + 1.5, 14)
+      cone(dome, 1.65, 1.4, x, 1.5, z + 1.5, 14)
+      box('#ffd700', 0.12, 0.5, 0.12, x, 2.9, z + 1.5)
+      break
+    }
+    case 'market': {
+      // Grote Markt: open plein met het standbeeld van Laurens Janszoon Coster
+      // en kleurige marktkraampjes.
+      solidRect(Math.floor(x), Math.floor(z), 1, 1)
+      box('#8a8f98', 1.0, 1.8, 1.0, x, 0, z) // sokkel
+      box('#b3b8bf', 1.2, 0.2, 1.2, x, 1.8, z)
+      const fig = '#5d6b54' // bronzen figuur
+      box(fig, 0.4, 0.7, 0.26, x, 2.0, z)
+      box(fig, 0.28, 0.28, 0.26, x, 2.7, z)
+      box(fig, 0.5, 0.12, 0.12, x, 2.45, z - 0.2)
+      box('#caa23a', 0.22, 0.26, 0.04, x, 2.5, z - 0.34) // de letter (boekdrukkunst)
+      // marktkraampjes rondom met gestreepte luifels
+      const stalls = [[-3, -3, '#e63946'], [-4, 1.5, '#3a6ff7'], [-2.5, 3.6, '#4caf50'], [2.6, -3.6, '#ffd166'], [3.6, 2.2, '#9b5de5']]
+      for (const [sx, sz, col] of stalls) {
+        const bx = x + sx
+        const bz = z + sz
+        for (const [lx, lz] of [[-0.55, -0.42], [0.55, -0.42], [-0.55, 0.42], [0.55, 0.42]]) box('#7a5230', 0.08, 0.95, 0.08, bx + lx, 0, bz + lz)
+        box('#a9784f', 1.35, 0.1, 1.0, bx, 0.95, bz) // toonbank
+        box('#e6873a', 0.4, 0.22, 0.3, bx - 0.32, 1.05, bz)
+        box('#cf3a3a', 0.4, 0.22, 0.3, bx + 0.34, 1.05, bz + 0.1)
+        box('#7a5230', 0.06, 1.0, 0.06, bx - 0.62, 0.95, bz)
+        box('#7a5230', 0.06, 1.0, 0.06, bx + 0.62, 0.95, bz)
+        box(col, 1.55, 0.1, 1.2, bx, 1.95, bz) // luifel
+        box('#f4f1e8', 1.55, 0.06, 0.3, bx, 1.97, bz - 0.44)
+        box('#f4f1e8', 1.55, 0.06, 0.3, bx, 1.97, bz + 0.16)
+      }
+      for (const [lx, lz] of [[-4.6, -1], [4.6, -1], [0, 4.6]]) {
+        box('#2a2f3a', 0.1, 2.4, 0.1, x + lx, 0, z + lz)
+        box('#fff7c0', 0.22, 0.22, 0.22, x + lx, 2.4, z + lz)
+      }
+      break
+    }
     case 'church': {
       solidRect(Math.floor(x) - 1, Math.floor(z) - 1, 3, 3)
       box('#9aa0a8', 3.4, 3.2, 3, x, 0, z)
@@ -568,9 +737,9 @@ export function buildCity(group, GRID, city) {
     box('#6f4a2e', 0.14, 0.32, 1.6, R - 0.95, 0.12, c + 0.5)
     box('#6f4a2e', 0.14, 0.32, 1.6, R + 1.95, 0.12, c + 0.5)
   }
-  function makeDrawbridge(c, R, axis, w = 1, deckCol = '#9a6a3e') {
+  function makeDrawbridge(c, R, axis, w = 1, deckCol = '#9a6a3e', frameCol = '#5a3a22') {
     const wood = matOf(deckCol)
-    const dark = matOf('#5a3a22')
+    const dark = matOf(frameCol)
     const g = new THREE.Group()
     const cells = []
     for (let i = 0; i < w; i++) {
@@ -751,14 +920,22 @@ export function buildCity(group, GRID, city) {
     waterLine([[50, 16], [50, 140]], 2) // de Leidsevaart (westkant)
     waterLine([[50, 116], [64, 117], [78, 118], [90, 119], [95, 120]], 2) // Gasthuisvest en Kampersingel
     waterLine([[142, 40], [141, 60], [140, 80], [139, 96], [137, 112]], 2) // de Herensingel, achter de Poort
-    // leuningen op de twee vaste Spaarne-bruggen (Catharijnebrug en Langebrug)
-    box('#6f4a2e', 9, 0.32, 0.14, 114.5, 0.13, 31.4)
-    box('#6f4a2e', 9, 0.32, 0.14, 114.5, 0.13, 35.6)
-    box('#6f4a2e', 8, 0.32, 0.14, 103, 0.13, 110.4)
-    box('#6f4a2e', 8, 0.32, 0.14, 103, 0.13, 114.6)
-    // de Gravestenenbrug: de witte ophaalbrug over het Spaarne
+    // de twee vaste Spaarne-bruggen (Catharijnebrug en Langebrug): stenen
+    // boog onder het dek + lichte balustrade met spijltjes
+    const stoneBridge = (cx, cz0, cz1, span) => {
+      const midz = (cz0 + cz1) / 2
+      box('#b9b0a0', span, 0.7, cz1 - cz0 + 1.4, cx, -0.5, midz) // booglichaam
+      box('#cabfa6', span + 0.4, 0.3, cz1 - cz0 + 1.8, cx, 0.16, midz) // dekrand
+      for (const sz of [cz0 - 0.6, cz1 + 0.6]) {
+        box('#d7cfbe', span, 0.12, 0.16, cx, 0.78, sz) // bovenregel
+        for (let i = 0; i < span; i++) box('#e7ddc4', 0.1, 0.6, 0.1, cx - span / 2 + 0.5 + i, 0.16, sz) // spijltjes
+      }
+    }
+    stoneBridge(114.5, 31.4, 35.6, 9)
+    stoneBridge(103, 110.4, 114.6, 8)
+    // de Gravestenenbrug: de witte houten ophaalbrug over het Spaarne
     reserveRect(115, 69, 5, 3) // het bruggat vrijhouden van huizen
-    makeDrawbridge(115, 70, 'x', 5, '#f2efe6')
+    makeDrawbridge(115, 70, 'x', 5, '#f4f1ea', '#eef1f4')
     // de Grote Markt: plaveisel rond de Grote Kerk
     reserveRect(70, 60, 14, 12)
     for (let px = 70; px < 84; px++)
@@ -1268,13 +1445,13 @@ export const CITIES = [
     abs: true, // plekken staan op echte kaart-posities (160-rooster)
     start: { x: 76.5, z: 67.5 }, // je begint op de Grote Markt
     landmarks: [
-      { name: 'Grote Kerk', type: 'church', x: 81, z: 66, opts: { tower: 7, spire: '#3f7d6e' }, labelY: 11.5, labelScale: 1.2, fact: 'De Grote Kerk staat op de Grote Markt en heeft een wereldberoemd orgel. Mozart speelde erop toen hij nog maar 10 jaar oud was!' },
-      { name: 'Stadhuis', type: 'palace', x: 70, z: 66, opts: { w: 5, color: '#b89a6a', cupola: true }, labelY: 6.2, fact: 'Het Stadhuis van Haarlem staat aan de Grote Markt, recht tegenover de Grote Kerk.' },
+      { name: 'Grote Kerk (Sint-Bavo)', type: 'bavo', x: 81, z: 66, labelY: 23.5, labelScale: 1.2, fact: 'De Grote of Sint-Bavokerk staat op de Grote Markt en heeft een wereldberoemd orgel. Mozart speelde erop toen hij nog maar 10 jaar oud was! De hoge grijze toren zie je van ver.' },
+      { name: 'Stadhuis', type: 'stadhuis', x: 70, z: 66, opts: { color: '#9c4a38' }, labelY: 9.6, fact: 'Het Stadhuis van Haarlem staat aan de Grote Markt, recht tegenover de Grote Kerk. Het heeft een mooie trapgevel en een open booggalerij.' },
       { name: 'Vleeshal', type: 'museum', x: 84, z: 63, opts: { color: '#7a8088', spire: '#5a6470' }, labelY: 6.0, fact: 'De Vleeshal bij de Grote Markt is meer dan 400 jaar oud. Vroeger werd er vlees verkocht, nu is het een museum.' },
-      { name: 'Grote Markt', type: 'square', x: 74, z: 65, labelY: 3.2, fact: 'Op de Grote Markt is vaak markt. Hier staat ook het standbeeld van Laurens Janszoon Coster.' },
+      { name: 'Grote Markt', type: 'market', x: 74, z: 65, labelY: 3.4, fact: 'Op de Grote Markt is vaak markt met kraampjes. Hier staat ook het standbeeld van Laurens Janszoon Coster, die volgens Haarlem de boekdrukkunst uitvond.' },
       { name: 'Het Spaarne', type: 'label', x: 105, z: 106, labelY: 1.8, fact: 'Het Spaarne is de rivier van Haarlem. Hij maakt een echte S-bocht om de Burgwal heen, net als op de kaart.' },
       { name: 'Gravestenenbrug', type: 'label', x: 117, z: 67, labelY: 5.5, fact: 'De Gravestenenbrug is de witte ophaalbrug over het Spaarne, aan het einde van de Damstraat. Hij gaat open als er een bootje aankomt!' },
-      { name: 'Teylers Museum', type: 'museum', x: 108, z: 62, opts: { color: '#cdbb94', spire: '#3f5e7d' }, labelY: 6.0, fact: 'Het Teylers Museum aan het Spaarne is het oudste museum van Nederland, vol fossielen en uitvindingen.' },
+      { name: 'Teylers Museum', type: 'teylers', x: 108, z: 62, opts: { color: '#d3c6a2' }, labelY: 6.4, fact: 'Het Teylers Museum aan het Spaarne is het oudste museum van Nederland, vol fossielen en uitvindingen. Het heeft een deftige zuilengevel en de beroemde Ovale Zaal.' },
       { name: 'Bakenesserkerk', type: 'tower', x: 92, z: 56, opts: { h: 9, spire: '#f4f6f8' }, labelY: 12.5, fact: 'De witte toren van de Bakenesserkerk staat in het Bakenes-buurtje, tussen de Markt en het Spaarne.' },
       { name: 'Molen De Adriaan', type: 'windmill', x: 121, z: 28, labelY: 7.2, fact: 'Molen De Adriaan staat op de oostoever van het Spaarne. Vroeger werd er onder andere tabak en verf gemaakt.' },
       { name: 'Amsterdamse Poort', type: 'gate', x: 139, z: 74, labelY: 6.4, fact: 'De Amsterdamse Poort staat aan het einde van de Spaarnwouderstraat, aan de oostrand van de stad. Erachter ligt de Herensingel.' },
