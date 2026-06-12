@@ -614,7 +614,7 @@ function spawnAmbients() {
   }
   ambients = []
   const taken = new Set()
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 30; i++) {
     const c = freeCell(taken)
     if (!c) continue
     const mesh = makeCharacter(randomCfg())

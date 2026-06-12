@@ -1029,29 +1029,96 @@ export function buildCity(group, GRID, city) {
     g.add(body, cab)
     return g
   }
+  function makeBus(color) {
+    const g = new THREE.Group()
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.85, 2.6), matOf(color))
+    body.position.y = 0.55
+    body.castShadow = true
+    const ramen = new THREE.Mesh(new THREE.BoxGeometry(0.87, 0.3, 2.2), matOf('#bfe4ff'))
+    ramen.position.y = 0.78
+    const voorruit = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.34, 0.06), matOf('#bfe4ff'))
+    voorruit.position.set(0, 0.74, 1.28)
+    const wheelGeo = new THREE.BoxGeometry(0.18, 0.26, 0.3)
+    for (const [wx, wz] of [[-0.4, 0.85], [0.4, 0.85], [-0.4, -0.85], [0.4, -0.85]]) {
+      const w = new THREE.Mesh(wheelGeo, matOf('#1a1a1f'))
+      w.position.set(wx, 0.16, wz)
+      g.add(w)
+    }
+    g.add(body, ramen, voorruit)
+    return g
+  }
+  function makeBike(kind) {
+    // fiets, bakfiets (met kindje in de bak) of fatbike (dikke banden, te snel)
+    const g = new THREE.Group()
+    const frameCol = matOf(kind === 'fatbike' ? '#2a2f3a' : ['#e63946', '#3a6ff7', '#1f4d3a', '#7a4ba0'][(rnd() * 4) | 0])
+    const dark = matOf('#1a1a1f')
+    const skin = matOf('#e0a878')
+    const wr = kind === 'fatbike' ? 0.2 : 0.17
+    const wt = kind === 'fatbike' ? 0.14 : 0.06
+    const wb = kind === 'bakfiets' ? 0.55 : 0.42
+    for (const wz of [wb, -wb]) {
+      const wiel = new THREE.Mesh(new THREE.CylinderGeometry(wr, wr, wt, 10), dark)
+      wiel.rotation.z = Math.PI / 2
+      wiel.position.set(0, wr, wz)
+      g.add(wiel)
+    }
+    const buis = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, wb * 1.6), frameCol)
+    buis.position.y = wr + 0.12
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.34, 0.14), matOf(['#18a3a3', '#ffd166', '#ff7ab6', '#4caf50'][(rnd() * 4) | 0]))
+    torso.position.set(0, wr + 0.42, -0.12)
+    torso.rotation.x = 0.3 // voorovergebogen op het stuur
+    const hoofd = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.16), skin)
+    hoofd.position.set(0, wr + 0.66, -0.04)
+    const stuur = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.04, 0.04), dark)
+    stuur.position.set(0, wr + 0.36, wb * 0.7)
+    g.add(buis, torso, hoofd, stuur)
+    if (kind === 'bakfiets') {
+      const bak = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.22, 0.42), matOf('#9a6a3e'))
+      bak.position.set(0, wr + 0.12, wb * 0.55)
+      const kindje = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, 0.13), skin)
+      kindje.position.set(0, wr + 0.3, wb * 0.55)
+      g.add(bak, kindje)
+    }
+    g.traverse((o) => {
+      if (o.isMesh) o.castShadow = true
+    })
+    return g
+  }
   const carColors = ['#e63946', '#3a6ff7', '#f4a93a', '#2a2f3a', '#ffffff', '#5cb85c', '#9b5de5', '#d23f8f']
   let ci = 0
+  const vehSpeed = (k) => (k === 'auto' ? 3.0 : k === 'bus' ? 2.3 : k === 'fatbike' ? 3.4 : k === 'bakfiets' ? 1.7 : 2.1)
+  const vehMesh = (k) =>
+    k === 'auto' ? makeCar(carColors[ci++ % carColors.length]) : k === 'bus' ? makeBus(['#e63946', '#3a6ff7', '#f4a93a'][ci++ % 3]) : makeBike(k)
   if (isHaarlem) {
-    // auto's volgen de echte straten (niet door de winkelstraat!)
-    for (const nm of ['Kruisweg', 'Dreef', 'Gedempte Oude Gracht', 'Gasthuisvest', 'Zijlstraat', 'Lange Herenvest']) {
-      const st = H_STREETS.find((s) => s.n === nm)
-      if (!st) continue
+    const addPathVehicle = (streetName, kind) => {
+      const st = H_STREETS.find((s) => s.n === streetName)
+      if (!st) return
       const lens = [0]
       for (let i = 0; i < st.p.length - 1; i++)
         lens.push(lens[i] + Math.hypot(st.p[i + 1][0] - st.p[i][0], st.p[i + 1][1] - st.p[i][1]))
-      const c1 = makeCar(carColors[ci++ % carColors.length])
-      group.add(c1)
-      cars.push({ mesh: c1, path: st.p, lens, total: lens[lens.length - 1], s: rnd() * lens[lens.length - 1], dir: rnd() < 0.5 ? 1 : -1, speed: 2.8 })
+      const mesh = vehMesh(kind)
+      group.add(mesh)
+      cars.push({ mesh, path: st.p, lens, total: lens[lens.length - 1], s: rnd() * lens[lens.length - 1], dir: rnd() < 0.5 ? 1 : -1, speed: vehSpeed(kind) })
     }
+    // auto's en bussen op de grote straten (niet door de winkelstraat!)
+    for (const nm of ['Kruisweg', 'Dreef', 'Gedempte Oude Gracht', 'Gasthuisvest', 'Zijlstraat', 'Lange Herenvest']) addPathVehicle(nm, 'auto')
+    for (const nm of ['Kruisweg', 'Dreef', 'Gedempte Oude Gracht']) addPathVehicle(nm, 'bus')
+    // fietsers, bakfietsen en fatbikes door de hele stad
+    const fietsStraten = ['Damstraat', 'Jansstraat', 'Spaarne-kade', 'Antoniestraat', 'Parklaan', 'Spaarnwouderstraat', 'Burgwal-zuid', 'Zijlstraat', 'Gasthuisvest', 'Kruisweg']
+    fietsStraten.forEach((nm, i) => addPathVehicle(nm, ['fiets', 'bakfiets', 'fatbike'][i % 3]))
+    for (const nm of ['Damstraat', 'Spaarne-kade', 'Jansstraat', 'Dreef', 'Gedempte Oude Gracht']) addPathVehicle(nm, 'fiets')
   } else {
-    for (let i = 0; i < ROADS.length; i += 2) {
+    const kinds = ['auto', 'fiets', 'auto', 'bus', 'bakfiets', 'fatbike']
+    for (let i = 0; i < ROADS.length; i++) {
       const R = ROADS[i]
-      const c1 = makeCar(carColors[ci++ % carColors.length])
+      const k1 = kinds[i % kinds.length]
+      const c1 = vehMesh(k1)
       group.add(c1)
-      cars.push({ mesh: c1, axis: 'z', fixed: R + 0.5, pos: rnd() * GRID, dir: rnd() < 0.5 ? 1 : -1, speed: 3.0 })
-      const c2 = makeCar(carColors[ci++ % carColors.length])
+      cars.push({ mesh: c1, axis: 'z', fixed: R + 0.5, pos: rnd() * GRID, dir: rnd() < 0.5 ? 1 : -1, speed: vehSpeed(k1) })
+      const k2 = kinds[(i + 3) % kinds.length]
+      const c2 = vehMesh(k2)
       group.add(c2)
-      cars.push({ mesh: c2, axis: 'x', fixed: R + 0.5, pos: rnd() * GRID, dir: rnd() < 0.5 ? 1 : -1, speed: 3.0 })
+      cars.push({ mesh: c2, axis: 'x', fixed: R + 0.5, pos: rnd() * GRID, dir: rnd() < 0.5 ? 1 : -1, speed: vehSpeed(k2) })
     }
   }
 
