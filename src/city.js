@@ -536,6 +536,103 @@ function buildLandmark(ctx, lm) {
       box('#ffd166', 0.35, 0.1, 0.12, x + 0.5, 0.7, z - 0.56)
       break
     }
+    case 'herenvest': {
+      // Lange Herenvest 16: jullie eigen huis, nagebouwd naar de foto. Rode
+      // baksteen, donkere onderpui met witte kruis-luiken (Andreaskruis), een
+      // witte erker op de eerste verdieping en een schuin dak met twee
+      // dakkapellen. De voorgevel kijkt naar de straat (+x).
+      const brick = o.color || '#9a5444'
+      const trim = '#ece6d6'
+      const dark = '#23232a'
+      const glass = '#bcd8e8'
+      const roofC = '#3a3d44'
+      const D = 3
+      const W = 2.6
+      const FX = x + D / 2
+      solidRect(Math.floor(x) - 2, Math.floor(z) - 1, 4, 4)
+      box(brick, D, 4.0, W, x, 0, z) // bakstenen romp (twee woonlagen)
+      box('#7e4034', D + 0.06, 0.2, W + 0.06, x, 0, z) // donkere plint
+      // ---- begane grond: donkere pui ----
+      box(dark, 0.22, 2.0, W, FX - 0.09, 0, z)
+      box(trim, 0.26, 0.22, W + 0.04, FX - 0.05, 1.98, z) // witte band boven de pui
+      box(trim, 0.1, 1.65, 0.74, FX - 0.02, 0, z) // deurkozijn
+      box('#0c0c10', 0.16, 1.5, 0.6, FX - 0.05, 0, z) // donkere deur
+      box('#caa23a', 0.06, 0.06, 0.06, FX + 0.06, 0.95, z - 0.22) // deurklink
+      for (const wz of [z - 0.82, z + 0.82]) {
+        box(trim, 0.1, 1.2, 0.84, FX - 0.02, 0.5, wz) // licht kozijn
+        box('#15151a', 0.13, 1.04, 0.7, FX - 0.04, 0.58, wz) // donker raamvlak
+        for (const rot of [0.6, -0.6]) {
+          const bar = new THREE.Mesh(new THREE.BoxGeometry(0.09, 1.32, 0.1), matOf(trim)) // wit Andreaskruis
+          bar.position.set(FX + 0.05, 1.1, wz)
+          bar.rotation.x = rot
+          bar.castShadow = true
+          group.add(bar)
+        }
+      }
+      // ---- eerste verdieping: witte erker ----
+      const ey = 2.15
+      box('#dfd8c6', 0.7, 0.4, 2.0, FX + 0.32, ey, z) // borstwering
+      box(trim, 0.78, 0.16, 2.12, FX + 0.3, ey + 0.36, z) // vensterbank
+      box(glass, 0.06, 0.92, 1.5, FX + 0.69, ey + 0.5, z) // glas voor
+      box(glass, 0.62, 0.92, 0.06, FX + 0.36, ey + 0.5, z - 0.8) // glas links
+      box(glass, 0.62, 0.92, 0.06, FX + 0.36, ey + 0.5, z + 0.8) // glas rechts
+      for (const mz of [z - 0.83, z - 0.28, z + 0.28, z + 0.83]) box(trim, 0.1, 0.96, 0.08, FX + 0.69, ey + 0.48, mz) // witte stijlen
+      box(trim, 0.66, 0.96, 0.1, FX + 0.36, ey + 0.48, z - 0.86)
+      box(trim, 0.66, 0.96, 0.1, FX + 0.36, ey + 0.48, z + 0.86)
+      box(trim, 0.84, 0.24, 2.16, FX + 0.3, ey + 1.42, z) // kroonlijst van de erker
+      // ---- schuin dak met twee dakkapellen ----
+      gableRoof(x, z, D, W, 4.0, 1.6, 'z', roofC)
+      for (const dz of [-0.62, 0.62]) {
+        box('#42454d', 0.55, 0.85, 0.72, x + 0.95, 4.35, z + dz) // dakkapel
+        box('#2c2f35', 0.64, 0.12, 0.82, x + 0.95, 5.18, z + dz) // dakje
+        box(trim, 0.08, 0.62, 0.58, x + 1.2, 4.48, z + dz) // kozijn
+        box(glass, 0.06, 0.55, 0.5, x + 1.24, 4.52, z + dz) // raampje
+      }
+      box('#7e4034', 0.45, 1.0, 0.45, x - 0.9, 4.8, z + 0.7) // schoorsteen
+      box('#3a3d44', 0.52, 0.14, 0.52, x - 0.9, 5.8, z + 0.7)
+      // huisnummer 16 op de gevel
+      const nc = document.createElement('canvas')
+      nc.width = 64
+      nc.height = 64
+      const n2 = nc.getContext('2d')
+      n2.fillStyle = '#ece6d6'
+      n2.fillRect(0, 0, 64, 64)
+      n2.fillStyle = '#23232a'
+      n2.font = 'bold 44px Arial'
+      n2.textAlign = 'center'
+      n2.textBaseline = 'middle'
+      n2.fillText('16', 32, 36)
+      const nsign = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(nc) }))
+      nsign.position.set(FX + 0.07, 1.78, z + 0.42)
+      nsign.rotation.y = Math.PI / 2
+      group.add(nsign)
+      // twee fietsen tegen de gevel
+      const makeBike = (bz, col) => {
+        const g = new THREE.Group()
+        for (const wxx of [-0.34, 0.34]) {
+          const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.27, 0.27, 0.05, 12), matOf('#17171b'))
+          wheel.rotation.x = Math.PI / 2
+          wheel.position.set(wxx, 0.27, 0)
+          g.add(wheel)
+        }
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.07, 0.06), matOf(col))
+        frame.position.set(0, 0.42, 0)
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.06, 0.1), matOf('#1a1a1f'))
+        seat.position.set(-0.26, 0.55, 0)
+        const handle = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.32, 0.06), matOf(col))
+        handle.position.set(0.3, 0.46, 0)
+        g.add(frame, seat, handle)
+        g.position.set(FX + 0.52, 0, bz)
+        g.rotation.set(0, Math.PI / 2, 0.1)
+        g.traverse((o) => {
+          if (o.isMesh) o.castShadow = true
+        })
+        group.add(g)
+      }
+      makeBike(z - 0.5, '#2f7d52')
+      makeBike(z + 0.45, '#b23a2e')
+      break
+    }
     // 'label' (en onbekend): alleen een naambordje, geen gebouw
   }
 }
@@ -1461,7 +1558,7 @@ export const CITIES = [
       { name: 'Bakenesserkerk', type: 'tower', x: 92, z: 56, opts: { h: 9, spire: '#f4f6f8' }, labelY: 12.5, fact: 'De witte toren van de Bakenesserkerk staat in het Bakenes-buurtje, tussen de Markt en het Spaarne.' },
       { name: 'Molen De Adriaan', type: 'windmill', x: 121, z: 28, labelY: 7.2, fact: 'Molen De Adriaan staat op de oostoever van het Spaarne. Vroeger werd er onder andere tabak en verf gemaakt.' },
       { name: 'Amsterdamse Poort', type: 'gate', x: 139, z: 74, labelY: 6.4, fact: 'De Amsterdamse Poort staat aan het einde van de Spaarnwouderstraat, aan de oostrand van de stad. Erachter ligt de Herensingel.' },
-      { name: 'Lange Herenvest 16', type: 'home', x: 133, z: 84, labelY: 5.0, labelScale: 1.2, fact: 'Dit is jullie huis aan de Lange Herenvest, in de Burgwal-buurt ten oosten van het Spaarne, vlak bij de Amsterdamse Poort!' },
+      { name: 'Lange Herenvest 16', type: 'herenvest', x: 133, z: 84, labelY: 6.4, labelScale: 1.2, fact: 'Dit is jullie eigen huis aan de Lange Herenvest 16: rode baksteen met witte kruis-luiken, een witte erker en twee dakkapellen. In de Burgwal-buurt ten oosten van het Spaarne, vlak bij de Amsterdamse Poort!' },
       { name: 'Station Haarlem', type: 'station', x: 74, z: 8, labelY: 5.6, fact: 'Vanaf Haarlem reed in 1839 de allereerste trein van Nederland! De Kruisweg loopt recht naar het station.' },
       { name: 'Veronicaschool', type: 'school', x: 87, z: 98.2, labelY: 5.8, labelScale: 1.3, fact: 'Dit is jouw school aan de Antoniestraat, midden in Haarlem! Het is een Jenaplanschool: binnen zitten ze in de kring. Je kunt naar binnen lopen!' },
       { name: 'Frans Hals Museum', type: 'museum', x: 68, z: 99, opts: { color: '#8a4632' }, labelY: 6.0, fact: 'In het Frans Hals Museum aan het Groot Heiligland hangen schilderijen van Frans Hals, de beroemdste schilder van Haarlem.' },
