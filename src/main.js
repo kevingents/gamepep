@@ -6,6 +6,7 @@ import { makeCharacter, loadCfg, saveCfg, PARTS } from './character.js'
 import { refresh, cachedTop, cachedTopScore, qualifies, submit } from './scores.js'
 import { joinRoom, leaveRoom, sendState, sendFx, sendTag, makeCode, inRoom } from './multiplayer.js'
 import { createSky } from './sky.js'
+import { getPid, fetchHouses, claimHouse, ringBell, fetchRings } from './social.js'
 
 // =====================================================================
 //  Diamant Haarlem - een 3D arcade-game in Minecraft-stijl.
@@ -168,6 +169,69 @@ Object.assign(START, world.start) // elke stad heeft zijn eigen startplek (Haarl
 const roundGroup = new THREE.Group()
 scene.add(roundGroup)
 
+// ---------- Huisjes van de klas: kies een huis in het spel en bel bij elkaar aan ----------
+// (geen echte adressen - alleen spel-coordinaten, veilig voor kinderen)
+const myPid = getPid()
+const housesGroup = new THREE.Group()
+scene.add(housesGroup)
+let houseByCell = new Map()
+let myHouseHere = false
+let nearHouse = null
+let bellScanT = 0
+async function refreshHouses() {
+  const rows = await fetchHouses(CITIES[cityIndex].key)
+  houseByCell = new Map()
+  myHouseHere = false
+  for (const child of [...housesGroup.children]) housesGroup.remove(child)
+  for (const h of rows) {
+    houseByCell.set(h.cx + ',' + h.cz, h)
+    if (h.pid === myPid) myHouseHere = true
+    const tag = makeTagSprite(h.name || 'Iemand')
+    tag.position.set(h.cx + 0.5, 2.3, h.cz + 0.5)
+    housesGroup.add(tag)
+  }
+}
+function scanBell() {
+  nearHouse = null
+  if (status === 'playing' && world.houses) {
+    const px = Math.floor(steveX)
+    const pz = Math.floor(steveZ)
+    let best = null
+    let bd = 99
+    for (let ox = -1; ox <= 1; ox++)
+      for (let oz = -1; oz <= 1; oz++) {
+        const k = px + ox + ',' + (pz + oz)
+        if (!world.houses.has(k)) continue
+        const d = Math.abs(ox) + Math.abs(oz)
+        if (d < bd) {
+          bd = d
+          best = k
+        }
+      }
+    if (best) nearHouse = { key: best, owner: houseByCell.get(best) || null }
+  }
+  const btn = $('btnBell')
+  if (!nearHouse) {
+    btn.style.display = 'none'
+    return
+  }
+  const o = nearHouse.owner
+  btn.style.display = 'block'
+  if (o && o.pid === myPid) btn.textContent = 'JOUW HUIS'
+  else if (o) btn.textContent = 'BEL AAN BIJ ' + (o.name || '?').toUpperCase()
+  else btn.textContent = myHouseHere ? 'VERHUIS HIERHEEN' : 'WOON HIER'
+}
+async function checkRings() {
+  const rows = await fetchRings(myPid)
+  if (rows.length) {
+    resumeAudio()
+    sfx.doorbell()
+    const names = [...new Set(rows.map((r) => r.from_name))].join(', ')
+    showToast('Ding dong! ' + names + (rows.length > 1 ? ' belden' : ' belde') + ' aan bij jouw huis!')
+  }
+}
+setInterval(checkRings, 25000)
+
 function loadCity() {
   try {
     const i = parseInt(localStorage.getItem('haarlem_stad') || '0', 10)
@@ -221,6 +285,7 @@ function buildCurrentCity() {
   world = buildCity(worldGroup, GRID, CITIES[cityIndex])
   Object.assign(START, world.start)
   spawnAmbients() // nieuwe passanten, katten en honden in de nieuwe stad
+  refreshHouses() // naambordjes van de klas in deze stad
   shownFacts = new Set()
 }
 
@@ -1936,6 +2001,34 @@ $('nameInput').addEventListener('input', (e) => {
   updateNameTag()
 })
 
+// aanbellen of een huis kiezen
+$('btnBell').addEventListener('click', async () => {
+  if (!nearHouse) return
+  resumeAudio()
+  const o = nearHouse.owner
+  if (o && o.pid !== myPid) {
+    sfx.doorbell()
+    ringBell(o.pid, playerName || 'Iemand')
+    showToast('Ding dong! Je belde aan bij ' + o.name)
+    return
+  }
+  if (o && o.pid === myPid) {
+    showToast('Dit is jouw huis!')
+    return
+  }
+  if (!playerName) {
+    showToast('Maak eerst je popje en kies een naam!')
+    return
+  }
+  const [hcx, hcz] = nearHouse.key.split(',').map(Number)
+  const ok = await claimHouse(myPid, playerName, CITIES[cityIndex].key, hcx, hcz)
+  if (ok) {
+    sfx.win()
+    showToast('Dit is nu jouw huis! Vriendjes kunnen aanbellen')
+    refreshHouses()
+  } else showToast('Huis kiezen lukt nu even niet')
+})
+
 // power-up + scheet/boer knoppen
 const actionBtns = { radar: $('btnRadar'), speed: $('btnSpeed'), giant: $('btnGiant') }
 $('btnRadar').addEventListener('click', () => activatePower('radar'))
@@ -2011,6 +2104,11 @@ function frame(now) {
   world.update(dt) // molenwieken, auto's, bruggen en trein draaien altijd
   sky.update(dt, camera.position.x, camera.position.z)
   if (status !== 'creator') updateAmbients(dt) // passanten en dieren wandelen rond
+  bellScanT -= dt
+  if (bellScanT <= 0) {
+    bellScanT = 0.3
+    scanBell() // sta je bij een huis? toon BEL AAN / WOON HIER
+  }
   if (status === 'playing') {
     updatePlayer(dt)
     updateSunShadow(steveX, steveZ)
@@ -2139,6 +2237,8 @@ function init() {
   updateMuteBtn()
   updateNameTag()
   spawnAmbients()
+  refreshHouses()
+  checkRings() // belde er iemand aan terwijl je weg was?
   showIntro()
   requestAnimationFrame(frame)
 }

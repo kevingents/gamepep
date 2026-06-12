@@ -190,6 +190,12 @@ export const sfx = {
     tone(150, 0.09, 'sawtooth', 0.16)
     tone(110, 0.1, 'sawtooth', 0.14, 0.13)
   },
+  // ding-dong: de deurbel
+  doorbell() {
+    if (!this.enabled) return
+    tone(659, 0.3, 'sine', 0.16)
+    tone(523, 0.45, 'sine', 0.16, 0.32)
+  },
   // achtergrondmuziek: 'vrolijk' (rustig) of 'feest' (huisfeestje met dansbeat)
   musicStart(style) {
     if (musicTimer) return

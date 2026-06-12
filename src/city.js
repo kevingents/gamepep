@@ -894,6 +894,7 @@ export function buildCity(group, GRID, city) {
   }
 
   // Bouwstenen
+  const houses = new Set() // cellen met een gewoon huis (voor wonen/aanbellen)
   const palette = city.palette
   const greens = ['#4f9e35', '#3f8a2e', '#5aa83f', '#469a36']
   const roofCols = ['#8a4a3a', '#5a5a5a', '#7a3f24', '#3f4e5e', '#6e3b4a']
@@ -902,6 +903,7 @@ export function buildCity(group, GRID, city) {
     const k = x + ',' + z
     if (solids.has(k) || reserved.has(k)) return
     solids.add(k)
+    houses.add(k) // hier kun je wonen en aanbellen
     const col = palette[(rnd() * palette.length) | 0]
     const tall = rnd() < (city.tall || 0.15) // Rotterdam veel hoogbouw, Amsterdam smal en hoog
     const h = tall ? 3.2 + rnd() * 3.6 : 1.5 + rnd() * 1.3
@@ -1065,6 +1067,7 @@ export function buildCity(group, GRID, city) {
 
   return {
     solids,
+    houses,
     landmarks,
     start: city.start || START,
     drawbridges,
