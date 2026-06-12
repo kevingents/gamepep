@@ -859,7 +859,12 @@ body {
 .sb-row.it b {
   color: var(--pink);
 }
-#btnStop {
+.mp-actions {
+  display: flex;
+  gap: 8px;
+}
+#btnStop,
+#btnInvite {
   pointer-events: auto;
   border: none;
   font-family: var(--arcade);
@@ -869,6 +874,10 @@ body {
   padding: 6px 16px;
   border-radius: 999px;
   cursor: pointer;
+}
+#btnInvite {
+  color: #06222a;
+  background: #36d6e7;
 }
 #roomInput {
   font-family: var(--arcade);

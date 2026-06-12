@@ -2622,6 +2622,23 @@ $('btnJoinRoom').addEventListener('click', () => {
 })
 $('btnLobbyBack').addEventListener('click', showIntro)
 $('btnStop').addEventListener('click', stopMultiplayer)
+// deel een uitnodiging: een linkje met de kamercode erin
+function inviteLink() {
+  return location.origin + location.pathname + '?room=' + (mpCode || '')
+}
+$('btnInvite').addEventListener('click', async () => {
+  if (!mpCode) return
+  resumeAudio()
+  const link = inviteLink()
+  const data = { title: 'Diamant Nederland', text: 'Doe mee in mijn spel! Code: ' + mpCode, url: link }
+  try {
+    if (navigator.share) await navigator.share(data)
+    else {
+      await navigator.clipboard.writeText(link)
+      showToast('Uitnodiging gekopieerd - plak hem in WhatsApp!')
+    }
+  } catch (e) {}
+})
 
 // terug naar start
 $('btnHome').addEventListener('click', () => {
@@ -2831,3 +2848,13 @@ function init() {
   requestAnimationFrame(frame)
 }
 init()
+// kwam je binnen via een uitnodigingslink (?room=CODE)? open de lobby met de code klaar
+{
+  const rp = new URLSearchParams(location.search).get('room')
+  if (rp && /^[A-Za-z0-9]{3,4}$/.test(rp)) {
+    showLobby()
+    $('roomInput').value = rp.toUpperCase()
+    showToast('Een vriendje nodigt je uit! Kies je naam en tik op DOE MEE.')
+    history.replaceState({}, '', location.pathname)
+  }
+}
