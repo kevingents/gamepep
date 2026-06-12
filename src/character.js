@@ -45,6 +45,253 @@ function hang(w, h, d) {
   return g
 }
 
+// Bouw een winkel-item (hoed/bril/vleugels/cape/schoenen/hand-ding) als losse
+// meshjes, klaar om aan het popje te hangen. Geeft { meshes, head, wings } terug.
+const TOP = 2.16 // bovenkant hoofd
+const FRONT = -0.27 // voorkant gezicht
+function buildAccessory(key) {
+  const out = []
+  let head = false
+  let wings = null
+  const add = (geo, color, x, y, z, rx, ry, rz) => {
+    const m = new THREE.Mesh(geo, mat(color))
+    m.position.set(x, y, z)
+    m.rotation.set(rx || 0, ry || 0, rz || 0)
+    out.push(m)
+    return m
+  }
+  const Cone = (r, h, s = 8) => new THREE.ConeGeometry(r, h, s)
+  const Cyl = (r, h, s = 10) => new THREE.CylinderGeometry(r, r, h, s)
+  const Sph = (r) => new THREE.SphereGeometry(r, 10, 8)
+  // een paar vleugels die kunnen klapperen
+  const makeWings = (color, w, h) => {
+    head = false
+    const g = box(0.16, h, 0.05)
+    g.translate(0, -h / 2, 0)
+    const l = add(g, color, -0.18, 1.82, 0.18, 0, 0, 0.5)
+    const r = add(g.clone(), color, 0.18, 1.82, 0.18, 0, 0, -0.5)
+    wings = [l, r]
+  }
+  switch (key) {
+    // ---------- Hoofd ----------
+    case 'kroon':
+      head = true
+      add(box(0.46, 0.13, 0.46), '#ffd700', 0, TOP + 0.06, 0)
+      for (const kx of [-0.16, 0, 0.16]) add(box(0.08, 0.13, 0.08), '#ffd700', kx, TOP + 0.16, 0)
+      add(box(0.08, 0.08, 0.04), '#e63946', 0, TOP + 0.08, FRONT + 0.04)
+      break
+    case 'tiara':
+      head = true
+      add(box(0.46, 0.06, 0.2), '#ffe066', 0, TOP + 0.04, 0)
+      add(Cone(0.06, 0.16, 4), '#ffe066', 0, TOP + 0.14, FRONT + 0.06)
+      add(Sph(0.05), '#ff7ab6', 0, TOP + 0.14, FRONT + 0.02)
+      break
+    case 'hoed':
+      head = true
+      add(box(0.58, 0.06, 0.58), '#5a2d8a', 0, TOP, 0)
+      add(Cone(0.24, 0.62, 6), '#5a2d8a', 0, TOP + 0.32, 0)
+      add(box(0.1, 0.1, 0.03), '#ffd166', 0, TOP + 0.24, FRONT + 0.1)
+      break
+    case 'heks':
+      head = true
+      add(box(0.62, 0.06, 0.62), '#1f4d3a', 0, TOP, 0)
+      add(Cone(0.24, 0.7, 6), '#2e7d52', 0, TOP + 0.36, 0)
+      break
+    case 'pet':
+      head = true
+      add(box(0.54, 0.18, 0.54), '#e63946', 0, TOP + 0.04, 0)
+      add(box(0.5, 0.06, 0.3), '#c32f3b', 0, TOP - 0.02, FRONT - 0.06)
+      break
+    case 'kapitein':
+      head = true
+      add(box(0.56, 0.2, 0.56), '#16243f', 0, TOP + 0.05, 0)
+      add(box(0.5, 0.06, 0.26), '#0e1a2e', 0, TOP - 0.02, FRONT - 0.04)
+      add(box(0.14, 0.1, 0.03), '#ffd166', 0, TOP + 0.08, FRONT + 0.02)
+      break
+    case 'hoge_hoed':
+      head = true
+      add(box(0.62, 0.05, 0.62), '#16161e', 0, TOP, 0)
+      add(Cyl(0.22, 0.5), '#16161e', 0, TOP + 0.27, 0)
+      add(box(0.46, 0.08, 0.46), '#e63946', 0, TOP + 0.04, 0)
+      break
+    case 'feesthoed':
+      head = true
+      add(Cone(0.22, 0.5, 12), '#ff5bb0', 0, TOP + 0.26, 0)
+      add(Sph(0.08), '#ffd166', 0, TOP + 0.52, 0)
+      break
+    case 'cowboy':
+      head = true
+      add(box(0.78, 0.05, 0.7), '#8a5a33', 0, TOP, 0)
+      add(box(0.42, 0.22, 0.42), '#6e4426', 0, TOP + 0.1, 0)
+      break
+    case 'piraat':
+      head = true
+      add(box(0.66, 0.16, 0.5), '#16161e', 0, TOP + 0.04, 0)
+      add(box(0.66, 0.06, 0.18), '#16161e', 0, TOP + 0.12, FRONT - 0.02, 0.3, 0, 0)
+      add(box(0.1, 0.1, 0.03), '#f2f2f2', 0, TOP + 0.06, FRONT + 0.02)
+      break
+    case 'kok':
+      head = true
+      add(box(0.5, 0.18, 0.5), '#f4f4f4', 0, TOP + 0.02, 0)
+      add(box(0.56, 0.26, 0.56), '#fbfbfb', 0, TOP + 0.22, 0)
+      break
+    case 'helm':
+      head = true
+      add(box(0.56, 0.4, 0.56), '#aeb6c6', 0, TOP - 0.02, 0)
+      add(box(0.08, 0.34, 0.1), '#8a93a6', 0, 1.9, FRONT - 0.02)
+      add(Cone(0.05, 0.2, 6), '#e63946', 0, TOP + 0.28, 0)
+      break
+    case 'ruimtehelm':
+      head = true
+      add(Sph(0.42), '#bfe4ff', 0, 1.95, 0)
+      add(box(0.5, 0.12, 0.5), '#dfe6ee', 0, 1.66, 0)
+      break
+    case 'muts':
+      head = true
+      add(box(0.56, 0.3, 0.56), '#3a6ff7', 0, TOP + 0.04, 0)
+      add(box(0.6, 0.1, 0.6), '#2a52c0', 0, TOP - 0.08, 0)
+      add(Sph(0.09), '#ffffff', 0, TOP + 0.24, 0)
+      break
+    case 'bloemenkrans':
+      head = true
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2
+        add(Sph(0.07), ['#ff7ab6', '#ffd166', '#7ad1ff', '#9be15d'][i % 4], Math.cos(a) * 0.28, TOP - 0.04, Math.sin(a) * 0.28)
+      }
+      break
+    case 'gewei':
+      head = true
+      for (const sx of [-1, 1]) {
+        add(box(0.06, 0.4, 0.06), '#7a4a28', sx * 0.16, TOP + 0.16, 0, 0, 0, sx * 0.3)
+        add(box(0.06, 0.2, 0.06), '#7a4a28', sx * 0.3, TOP + 0.34, 0, 0, 0, sx * 0.7)
+      }
+      break
+    case 'propeller':
+      head = true
+      add(box(0.5, 0.16, 0.5), '#e63946', 0, TOP + 0.02, 0)
+      add(box(0.5, 0.06, 0.3), '#ffd166', 0, TOP - 0.04, FRONT - 0.06)
+      add(box(0.5, 0.04, 0.06), '#3a6ff7', 0, TOP + 0.22, 0)
+      add(box(0.06, 0.04, 0.5), '#3a6ff7', 0, TOP + 0.22, 0)
+      break
+    case 'zonnehoed':
+      head = true
+      add(box(0.86, 0.05, 0.78), '#ffe08a', 0, TOP - 0.02, 0)
+      add(box(0.42, 0.16, 0.42), '#ffd166', 0, TOP + 0.06, 0)
+      add(box(0.44, 0.06, 0.44), '#ff7ab6', 0, TOP + 0.02, 0)
+      break
+    // ---------- Gezicht ----------
+    case 'bril_rond':
+      add(box(0.16, 0.16, 0.04), '#2a2f3a', -0.12, 1.95, FRONT - 0.02)
+      add(box(0.16, 0.16, 0.04), '#2a2f3a', 0.12, 1.95, FRONT - 0.02)
+      add(box(0.12, 0.04, 0.04), '#2a2f3a', 0, 1.95, FRONT - 0.02)
+      break
+    case 'zonnebril':
+      add(box(0.46, 0.16, 0.05), '#0e0e14', 0, 1.95, FRONT - 0.02)
+      add(box(0.5, 0.05, 0.05), '#16161e', 0, 2.0, FRONT - 0.02)
+      break
+    case 'snor':
+      add(box(0.28, 0.07, 0.06), '#3a2a1c', 0, 1.83, FRONT - 0.01)
+      break
+    case 'masker':
+      add(box(0.52, 0.16, 0.04), '#16161e', 0, 1.96, FRONT - 0.015)
+      break
+    case 'clownsneus':
+      add(Sph(0.1), '#e63946', 0, 1.88, FRONT - 0.04)
+      break
+    case 'ooglapje':
+      add(box(0.16, 0.16, 0.04), '#16161e', 0.12, 1.95, FRONT - 0.02)
+      add(box(0.5, 0.03, 0.03), '#16161e', 0, 2.06, -0.05, 0, 0.6, 0)
+      break
+    case 'snorkel':
+      add(box(0.46, 0.16, 0.06), '#3a6ff7', 0, 1.96, FRONT - 0.02)
+      add(box(0.06, 0.4, 0.06), '#ffd166', 0.26, 2.1, FRONT)
+      break
+    case 'nepbaard':
+      add(box(0.36, 0.26, 0.1), '#cfc6b4', 0, 1.66, FRONT + 0.02)
+      break
+    // ---------- Rug & vleugels ----------
+    case 'vleugels':
+      makeWings('#f4f6f8', 0.16, 0.66)
+      break
+    case 'vleerm_vleugels':
+      makeWings('#2b2230', 0.16, 0.6)
+      break
+    case 'vlinder_vleugels':
+      makeWings('#ff7ab6', 0.2, 0.6)
+      add(Sph(0.06), '#ffd166', -0.34, 1.6, 0.2)
+      add(Sph(0.06), '#ffd166', 0.34, 1.6, 0.2)
+      break
+    case 'draak_vleugels':
+      makeWings('#2e7d52', 0.18, 0.66)
+      break
+    case 'fee_vleugels':
+      makeWings('#ffc0e8', 0.16, 0.52)
+      break
+    case 'jetpack':
+      add(box(0.32, 0.5, 0.22), '#9aa0a8', 0, 1.3, 0.28)
+      add(Cyl(0.07, 0.16), '#e63946', -0.1, 1.02, 0.28)
+      add(Cyl(0.07, 0.16), '#e63946', 0.1, 1.02, 0.28)
+      add(Cone(0.07, 0.16, 8), '#ffb04a', -0.1, 0.88, 0.28, Math.PI, 0, 0)
+      add(Cone(0.07, 0.16, 8), '#ffb04a', 0.1, 0.88, 0.28, Math.PI, 0, 0)
+      break
+    case 'cape':
+      add(box(0.54, 0.78, 0.05), '#c8102e', 0, 1.22, 0.22, 0.08, 0, 0)
+      break
+    case 'cape_blauw':
+      add(box(0.54, 0.78, 0.05), '#1f5fd0', 0, 1.22, 0.22, 0.08, 0, 0)
+      break
+    case 'cape_regenboog':
+      ;['#e63946', '#ff8c42', '#ffd166', '#4caf50', '#3a6ff7', '#9b5de5'].forEach((c, i) =>
+        add(box(0.09, 0.78, 0.05), c, -0.225 + i * 0.09, 1.22, 0.22, 0.08, 0, 0)
+      )
+      break
+    case 'rugzak':
+      add(box(0.4, 0.46, 0.2), '#e63946', 0, 1.32, 0.26)
+      add(box(0.3, 0.2, 0.04), '#b8323c', 0, 1.36, 0.37)
+      add(box(0.06, 0.5, 0.06), '#b8323c', -0.22, 1.34, 0.04)
+      add(box(0.06, 0.5, 0.06), '#b8323c', 0.22, 1.34, 0.04)
+      break
+    case 'schild':
+      add(Sph(0.34), '#3f8a2e', 0, 1.36, 0.26)
+      for (const [hx, hy] of [[-0.1, 1.45], [0.1, 1.45], [0, 1.3]]) add(box(0.12, 0.12, 0.04), '#2e6322', hx, hy, 0.42)
+      break
+    case 'vlinderdas':
+      add(box(0.1, 0.12, 0.06), '#c8102e', -0.08, 1.46, FRONT + 0.02)
+      add(box(0.1, 0.12, 0.06), '#c8102e', 0.08, 1.46, FRONT + 0.02)
+      add(box(0.05, 0.06, 0.06), '#7a1f2b', 0, 1.46, FRONT + 0.02)
+      break
+    // ---------- In je hand (rechterhand) ----------
+    case 'ballon':
+      add(box(0.02, 0.7, 0.02), '#888', 0.5, 1.4, -0.1)
+      add(Sph(0.22), '#e63946', 0.5, 1.95, -0.1)
+      break
+    case 'zwaard':
+      add(box(0.07, 0.7, 0.07), '#cfd6df', 0.55, 1.4, -0.1)
+      add(box(0.26, 0.07, 0.07), '#7a4a28', 0.55, 1.08, -0.1)
+      break
+    case 'toverstaf':
+      add(box(0.05, 0.5, 0.05), '#7a4a28', 0.55, 1.25, -0.1)
+      add(Cone(0.1, 0.14, 5), '#ffd166', 0.55, 1.56, -0.1)
+      break
+    case 'vlag':
+      add(box(0.04, 0.7, 0.04), '#7a4a28', 0.55, 1.4, -0.1)
+      add(box(0.26, 0.18, 0.02), '#e63946', 0.7, 1.62, -0.1)
+      break
+    case 'paraplu':
+      add(box(0.04, 0.6, 0.04), '#2a2f3a', 0.55, 1.35, -0.1)
+      add(Cone(0.34, 0.24, 10), '#3a6ff7', 0.55, 1.66, -0.1)
+      break
+    case 'lolly':
+      add(box(0.03, 0.4, 0.03), '#f4f4f4', 0.55, 1.25, -0.1)
+      add(Cyl(0.14, 0.05, 14), '#ff5bb0', 0.55, 1.5, -0.1, Math.PI / 2, 0, 0)
+      break
+    default:
+      return null // schoen-items zonder los meshje (kleur is al gezet)
+  }
+  for (const m of out) m.castShadow = true
+  return { meshes: out, head, wings }
+}
+
 // Bouw het popje. Voeten staan op de grond (y = 0). userData { lLeg,rLeg,lArm,rArm }.
 // extras: gekochte add-ons die aan staan, zoals 'kroon', 'cape', 'vleugels',
 // 'hoed' en 'schoenen' (raketschoenen).
@@ -54,7 +301,20 @@ export function makeCharacter(cfg, extras = []) {
   const shirt = mat(colorAt('shirt', cfg.shirt))
   const pants = mat(colorAt('pants', cfg.pants))
   const hairC = mat(colorAt('hair', cfg.hair))
-  const shoeC = mat(extras.includes('schoenen') ? '#39ff88' : colorAt('shoes', cfg.shoes))
+  const shoeColor = extras.includes('gouden_schoenen')
+    ? '#ffd700'
+    : extras.includes('schoenen')
+      ? '#39ff88'
+      : extras.includes('rolschaatsen')
+        ? '#3a6ff7'
+        : extras.includes('springschoenen')
+          ? '#ff8c42'
+          : extras.includes('voetbalschoenen')
+            ? '#1b1b1b'
+            : extras.includes('laarzen')
+              ? '#5a3a22'
+              : colorAt('shoes', cfg.shoes)
+  const shoeC = mat(shoeColor)
   const eyeWhite = mat('#ffffff')
   const eyeC = mat('#20202c')
   const g = new THREE.Group()
@@ -112,52 +372,20 @@ export function makeCharacter(cfg, extras = []) {
   lBrow.position.set(-0.12, 2.05, -0.26)
   rBrow.position.set(0.12, 2.05, -0.26)
   g.add(lLeg, rLeg, hips, body, lArm, rArm, neck, head, lEyeW, rEyeW, lPup, rPup, mouth, lBrow, rBrow)
-  // add-ons uit de winkel
-  if (extras.includes('kroon')) {
-    const goud = mat('#ffd700')
-    const kroon = new THREE.Mesh(box(0.44, 0.12, 0.44), goud)
-    kroon.position.set(0, 2.22, 0)
-    g.add(kroon)
-    for (const kx of [-0.15, 0, 0.15]) {
-      const punt = new THREE.Mesh(box(0.08, 0.12, 0.08), goud)
-      punt.position.set(kx, 2.33, -0.18)
-      g.add(punt)
+  // add-ons uit de winkel: elk item tekent zichzelf
+  let headCovered = false
+  for (const key of extras) {
+    const res = buildAccessory(key)
+    if (!res) continue
+    for (const m of res.meshes) g.add(m)
+    if (res.head) headCovered = true
+    if (res.wings) {
+      lWing = res.wings[0]
+      rWing = res.wings[1]
     }
-    const juweel = new THREE.Mesh(box(0.08, 0.08, 0.04), mat('#e63946'))
-    juweel.position.set(0, 2.24, -0.23)
-    g.add(juweel)
-  }
-  if (extras.includes('cape')) {
-    const cape = new THREE.Mesh(box(0.54, 0.78, 0.05), mat('#c8102e'))
-    cape.position.set(0, 1.22, 0.22)
-    cape.rotation.x = 0.08
-    g.add(cape)
-  }
-  if (extras.includes('vleugels')) {
-    const wingMat = mat('#f4f6f8')
-    // vleugel hangt vanaf de bovenkant zodat hij netjes klappert
-    const wingGeo = box(0.16, 0.66, 0.05)
-    wingGeo.translate(0, -0.33, 0)
-    lWing = new THREE.Mesh(wingGeo, wingMat)
-    rWing = new THREE.Mesh(wingGeo.clone(), wingMat)
-    lWing.position.set(-0.18, 1.78, 0.18)
-    rWing.position.set(0.18, 1.78, 0.18)
-    lWing.rotation.z = 0.45
-    rWing.rotation.z = -0.45
-    g.add(lWing, rWing)
-  }
-  if (extras.includes('hoed')) {
-    const paars = mat('#5a2d8a')
-    const rand = new THREE.Mesh(box(0.6, 0.06, 0.6), paars)
-    rand.position.set(0, 2.18, 0)
-    const punt = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.55, 6), paars)
-    punt.position.set(0, 2.48, 0)
-    const ster = new THREE.Mesh(box(0.1, 0.1, 0.03), mat('#ffd166'))
-    ster.position.set(0, 2.4, -0.16)
-    g.add(rand, punt, ster)
   }
 
-  const hasHat = cfg.hat > 0
+  const hasHat = cfg.hat > 0 || headCovered
   const style = cfg.hairStyle
   if (style === 0 || style === 1) {
     const backH = style === 1 ? 0.85 : 0.4

@@ -8,7 +8,7 @@ import { joinRoom, leaveRoom, sendState, sendFx, sendTag, makeCode, inRoom } fro
 import { createSky } from './sky.js'
 import { getPid, fetchHouses, claimHouse, ringBell, fetchRings } from './social.js'
 import { nextQuestion } from './edu.js'
-import { ADDONS, getCoins, addCoins, getOwned, owns, buy, getActive, setActive } from './store.js'
+import { ADDONS, FLY_KEYS, SPEED_KEYS, getCoins, addCoins, getOwned, owns, buy, getActive, setActive } from './store.js'
 
 // =====================================================================
 //  Diamant Haarlem - een 3D arcade-game in Minecraft-stijl.
@@ -331,7 +331,10 @@ function setCharacter(cfg) {
   scene.add(player)
 }
 function canFly() {
-  return activeAddons.includes('vleugels')
+  return activeAddons.some((k) => FLY_KEYS.includes(k))
+}
+function hasSpeedShoes() {
+  return activeAddons.some((k) => SPEED_KEYS.includes(k))
 }
 setCharacter(playerCfg)
 
@@ -1074,7 +1077,7 @@ function updatePlayer(dt) {
   faceZ = -Math.cos(yaw)
   const u = player.userData
   if (fwd !== 0) {
-    const boost = (POWERS.speed.t > 0 ? 1.95 : 1) * (POWERS.giant.t > 0 ? 1.45 : 1) * (activeAddons.includes('schoenen') ? 1.4 : 1)
+    const boost = (POWERS.speed.t > 0 ? 1.95 : 1) * (POWERS.giant.t > 0 ? 1.45 : 1) * (hasSpeedShoes() ? 1.4 : 1)
     const sp = STEVE_SPEED * boost * dt * (fwd > 0 ? 1 : 0.6) // achteruit iets langzamer
     moveSteve(faceX * fwd * sp, faceZ * fwd * sp)
     footTimer -= dt
@@ -1880,7 +1883,21 @@ function renderShop() {
   $('shopCoins').textContent = coins
   const wrap = $('shopItems')
   wrap.innerHTML = ''
+  const aantal = getOwned().length
+  const teller = document.createElement('p')
+  teller.className = 'arcade-coins'
+  teller.style.color = '#9be15d'
+  teller.textContent = 'Verzameld: ' + aantal + ' / ' + ADDONS.length
+  wrap.appendChild(teller)
+  let lastCat = null
   for (const a of ADDONS) {
+    if (a.cat !== lastCat) {
+      lastCat = a.cat
+      const h = document.createElement('div')
+      h.className = 'shop-cat'
+      h.textContent = a.cat
+      wrap.appendChild(h)
+    }
     const row = document.createElement('div')
     row.className = 'shop-row'
     const heeft = owns(a.key)

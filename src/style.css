@@ -689,6 +689,14 @@ body {
   background: #6a3038;
   opacity: 0.6;
 }
+.shop-cat {
+  font-family: var(--arcade);
+  font-size: 11px;
+  color: var(--accent);
+  margin: 12px 0 4px;
+  width: min(86vw, 380px);
+  text-align: left;
+}
 .shop-row {
   display: flex;
   align-items: center;
