@@ -46,68 +46,144 @@ function hang(w, h, d) {
 }
 
 // Bouw het popje. Voeten staan op de grond (y = 0). userData { lLeg,rLeg,lArm,rArm }.
-export function makeCharacter(cfg) {
+// extras: gekochte add-ons die aan staan, zoals 'kroon', 'cape', 'vleugels',
+// 'hoed' en 'schoenen' (raketschoenen).
+export function makeCharacter(cfg, extras = []) {
   cfg = { ...DEFAULT_CFG, ...cfg }
   const skin = mat(colorAt('skin', cfg.skin))
   const shirt = mat(colorAt('shirt', cfg.shirt))
   const pants = mat(colorAt('pants', cfg.pants))
   const hairC = mat(colorAt('hair', cfg.hair))
-  const shoeC = mat(colorAt('shoes', cfg.shoes))
+  const shoeC = mat(extras.includes('schoenen') ? '#39ff88' : colorAt('shoes', cfg.shoes))
+  const eyeWhite = mat('#ffffff')
   const eyeC = mat('#20202c')
   const g = new THREE.Group()
+  let lWing = null
+  let rWing = null
 
-  const legGeo = hang(0.3, 0.8, 0.34)
+  // benen met schoenen
+  const legGeo = hang(0.26, 0.76, 0.3)
   const lLeg = new THREE.Mesh(legGeo, pants)
   const rLeg = new THREE.Mesh(legGeo, pants)
-  lLeg.position.set(-0.17, 0.8, 0)
-  rLeg.position.set(0.17, 0.8, 0)
-  const shoeGeo = box(0.34, 0.2, 0.46)
+  lLeg.position.set(-0.16, 0.76, 0)
+  rLeg.position.set(0.16, 0.76, 0)
+  const shoeGeo = box(0.3, 0.18, 0.44)
   const lShoe = new THREE.Mesh(shoeGeo, shoeC)
   const rShoe = new THREE.Mesh(shoeGeo, shoeC)
-  lShoe.position.set(0, -0.72, -0.06)
-  rShoe.position.set(0, -0.72, -0.06)
+  lShoe.position.set(0, -0.68, -0.06)
+  rShoe.position.set(0, -0.68, -0.06)
   lLeg.add(lShoe)
   rLeg.add(rShoe)
-
-  const body = new THREE.Mesh(box(0.72, 0.72, 0.42), shirt)
-  body.position.set(0, 1.16, 0)
-  const armGeo = hang(0.22, 0.72, 0.3)
-  const lArm = new THREE.Mesh(armGeo, skin)
-  const rArm = new THREE.Mesh(armGeo, skin)
-  lArm.position.set(-0.47, 1.52, 0)
-  rArm.position.set(0.47, 1.52, 0)
-  const head = new THREE.Mesh(box(0.62, 0.62, 0.62), skin)
-  head.position.set(0, 1.86, 0)
-  const lEye = new THREE.Mesh(box(0.12, 0.12, 0.04), eyeC)
-  const rEye = new THREE.Mesh(box(0.12, 0.12, 0.04), eyeC)
-  lEye.position.set(-0.14, 1.9, -0.32)
-  rEye.position.set(0.14, 1.9, -0.32)
-  g.add(lLeg, rLeg, body, lArm, rArm, head, lEye, rEye)
+  // heupen + romp (iets slanker = realistischer)
+  const hips = new THREE.Mesh(box(0.56, 0.24, 0.34), pants)
+  hips.position.set(0, 0.86, 0)
+  const body = new THREE.Mesh(box(0.6, 0.62, 0.36), shirt)
+  body.position.set(0, 1.28, 0)
+  // armen met handjes
+  const armGeo = hang(0.16, 0.6, 0.2)
+  const lArm = new THREE.Mesh(armGeo, shirt)
+  const rArm = new THREE.Mesh(armGeo, shirt)
+  lArm.position.set(-0.39, 1.55, 0)
+  rArm.position.set(0.39, 1.55, 0)
+  const handGeo = box(0.15, 0.15, 0.17)
+  const lHand = new THREE.Mesh(handGeo, skin)
+  const rHand = new THREE.Mesh(handGeo, skin)
+  lHand.position.set(0, -0.66, 0)
+  rHand.position.set(0, -0.66, 0)
+  lArm.add(lHand)
+  rArm.add(rHand)
+  // nek + hoofd met echte oogjes, mond en wenkbrauwen
+  const neck = new THREE.Mesh(box(0.16, 0.12, 0.16), skin)
+  neck.position.set(0, 1.62, 0)
+  const head = new THREE.Mesh(box(0.5, 0.5, 0.5), skin)
+  head.position.set(0, 1.92, 0)
+  const lEyeW = new THREE.Mesh(box(0.13, 0.13, 0.03), eyeWhite)
+  const rEyeW = new THREE.Mesh(box(0.13, 0.13, 0.03), eyeWhite)
+  lEyeW.position.set(-0.12, 1.95, -0.26)
+  rEyeW.position.set(0.12, 1.95, -0.26)
+  const lPup = new THREE.Mesh(box(0.06, 0.06, 0.04), eyeC)
+  const rPup = new THREE.Mesh(box(0.06, 0.06, 0.04), eyeC)
+  lPup.position.set(-0.12, 1.94, -0.265)
+  rPup.position.set(0.12, 1.94, -0.265)
+  const mouth = new THREE.Mesh(box(0.16, 0.05, 0.03), mat('#a3402e'))
+  mouth.position.set(0, 1.78, -0.26)
+  const lBrow = new THREE.Mesh(box(0.13, 0.04, 0.03), hairC)
+  const rBrow = new THREE.Mesh(box(0.13, 0.04, 0.03), hairC)
+  lBrow.position.set(-0.12, 2.05, -0.26)
+  rBrow.position.set(0.12, 2.05, -0.26)
+  g.add(lLeg, rLeg, hips, body, lArm, rArm, neck, head, lEyeW, rEyeW, lPup, rPup, mouth, lBrow, rBrow)
+  // add-ons uit de winkel
+  if (extras.includes('kroon')) {
+    const goud = mat('#ffd700')
+    const kroon = new THREE.Mesh(box(0.44, 0.12, 0.44), goud)
+    kroon.position.set(0, 2.22, 0)
+    g.add(kroon)
+    for (const kx of [-0.15, 0, 0.15]) {
+      const punt = new THREE.Mesh(box(0.08, 0.12, 0.08), goud)
+      punt.position.set(kx, 2.33, -0.18)
+      g.add(punt)
+    }
+    const juweel = new THREE.Mesh(box(0.08, 0.08, 0.04), mat('#e63946'))
+    juweel.position.set(0, 2.24, -0.23)
+    g.add(juweel)
+  }
+  if (extras.includes('cape')) {
+    const cape = new THREE.Mesh(box(0.54, 0.78, 0.05), mat('#c8102e'))
+    cape.position.set(0, 1.22, 0.22)
+    cape.rotation.x = 0.08
+    g.add(cape)
+  }
+  if (extras.includes('vleugels')) {
+    const wingMat = mat('#f4f6f8')
+    // vleugel hangt vanaf de bovenkant zodat hij netjes klappert
+    const wingGeo = box(0.16, 0.66, 0.05)
+    wingGeo.translate(0, -0.33, 0)
+    lWing = new THREE.Mesh(wingGeo, wingMat)
+    rWing = new THREE.Mesh(wingGeo.clone(), wingMat)
+    lWing.position.set(-0.18, 1.78, 0.18)
+    rWing.position.set(0.18, 1.78, 0.18)
+    lWing.rotation.z = 0.45
+    rWing.rotation.z = -0.45
+    g.add(lWing, rWing)
+  }
+  if (extras.includes('hoed')) {
+    const paars = mat('#5a2d8a')
+    const rand = new THREE.Mesh(box(0.6, 0.06, 0.6), paars)
+    rand.position.set(0, 2.18, 0)
+    const punt = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.55, 6), paars)
+    punt.position.set(0, 2.48, 0)
+    const ster = new THREE.Mesh(box(0.1, 0.1, 0.03), mat('#ffd166'))
+    ster.position.set(0, 2.4, -0.16)
+    g.add(rand, punt, ster)
+  }
 
   const hasHat = cfg.hat > 0
   const style = cfg.hairStyle
   if (style === 0 || style === 1) {
-    const backH = style === 1 ? 1.0 : 0.5
-    const back = new THREE.Mesh(box(0.66, backH, 0.16), hairC)
-    back.position.set(0, 2.17 - backH / 2, -0.27)
+    const backH = style === 1 ? 0.85 : 0.4
+    const back = new THREE.Mesh(box(0.54, backH, 0.14), hairC)
+    back.position.set(0, 2.14 - backH / 2, -0.21)
     g.add(back)
     if (style === 1) {
-      const ls = new THREE.Mesh(box(0.14, 0.85, 0.5), hairC)
-      const rs = new THREE.Mesh(box(0.14, 0.85, 0.5), hairC)
-      ls.position.set(-0.33, 1.7, -0.04)
-      rs.position.set(0.33, 1.7, -0.04)
+      const ls = new THREE.Mesh(box(0.12, 0.7, 0.42), hairC)
+      const rs = new THREE.Mesh(box(0.12, 0.7, 0.42), hairC)
+      ls.position.set(-0.27, 1.82, -0.02)
+      rs.position.set(0.27, 1.82, -0.02)
       g.add(ls, rs)
     }
   }
   if (!hasHat) {
     if (style === 0 || style === 1) {
-      const top = new THREE.Mesh(box(0.66, 0.16, 0.66), hairC)
-      top.position.set(0, 2.2, 0)
+      const top = new THREE.Mesh(box(0.54, 0.14, 0.54), hairC)
+      top.position.set(0, 2.18, 0)
       g.add(top)
+      const pony = new THREE.Mesh(box(0.54, 0.1, 0.12), hairC)
+      pony.position.set(0, 2.13, -0.22)
+      g.add(pony)
     } else if (style === 2) {
-      for (const [sx, sz] of [[-0.18, -0.18], [0.18, -0.18], [-0.18, 0.18], [0.18, 0.18], [0, 0]]) {
-        const sp = new THREE.Mesh(box(0.16, 0.3, 0.16), hairC)
-        sp.position.set(sx, 2.28, sz)
+      for (const [sx, sz] of [[-0.15, -0.15], [0.15, -0.15], [-0.15, 0.15], [0.15, 0.15], [0, 0]]) {
+        const sp = new THREE.Mesh(box(0.13, 0.24, 0.13), hairC)
+        sp.position.set(sx, 2.22, sz)
         g.add(sp)
       }
     }
@@ -115,27 +191,27 @@ export function makeCharacter(cfg) {
   }
   if (hasHat) {
     const hatC = mat(colorAt('hat', cfg.hat))
-    const cap = new THREE.Mesh(box(0.68, 0.2, 0.68), hatC)
-    cap.position.set(0, 2.24, 0)
-    const brim = new THREE.Mesh(box(0.68, 0.08, 0.34), hatC)
-    brim.position.set(0, 2.18, -0.46)
+    const cap = new THREE.Mesh(box(0.56, 0.18, 0.56), hatC)
+    cap.position.set(0, 2.18, 0)
+    const brim = new THREE.Mesh(box(0.56, 0.07, 0.3), hatC)
+    brim.position.set(0, 2.14, -0.38)
     g.add(cap, brim)
   }
   if (cfg.glasses > 0) {
     const dark = mat(cfg.glasses === 2 ? '#0e0e14' : '#1c1c24')
-    const lw = cfg.glasses === 2 ? 0.2 : 0.16
-    const ll = new THREE.Mesh(box(lw, 0.15, 0.05), dark)
-    const rl = new THREE.Mesh(box(lw, 0.15, 0.05), dark)
-    const br = new THREE.Mesh(box(0.12, 0.04, 0.05), dark)
-    ll.position.set(-0.15, 1.9, -0.33)
-    rl.position.set(0.15, 1.9, -0.33)
-    br.position.set(0, 1.9, -0.33)
+    const lw = cfg.glasses === 2 ? 0.17 : 0.14
+    const ll = new THREE.Mesh(box(lw, 0.14, 0.04), dark)
+    const rl = new THREE.Mesh(box(lw, 0.14, 0.04), dark)
+    const br = new THREE.Mesh(box(0.1, 0.04, 0.04), dark)
+    ll.position.set(-0.12, 1.95, -0.28)
+    rl.position.set(0.12, 1.95, -0.28)
+    br.position.set(0, 1.95, -0.28)
     g.add(ll, rl, br)
   }
 
   g.traverse((o) => {
     if (o.isMesh) o.castShadow = true
   })
-  g.userData = { lLeg, rLeg, lArm, rArm }
+  g.userData = { lLeg, rLeg, lArm, rArm, lWing, rWing }
   return g
 }

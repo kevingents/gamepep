@@ -640,6 +640,89 @@ body {
   box-shadow: 0 1px 0 #b8992a;
 }
 
+.school-btn {
+  background: #36d6e7;
+  box-shadow: 0 4px 0 #1a9fb0;
+  color: #06222a;
+}
+.school-btn:active {
+  box-shadow: 0 1px 0 #1a9fb0;
+}
+.fly-btn {
+  position: absolute;
+  right: calc(16px + env(safe-area-inset-right));
+  bottom: calc(100px + env(safe-area-inset-bottom));
+  z-index: 25;
+  border: none;
+  font-family: var(--arcade);
+  font-size: 12px;
+  color: #fff;
+  background: #7a4ba0;
+  padding: 16px 18px;
+  border-radius: 50%;
+  box-shadow: 0 4px 0 #4f2d70;
+  cursor: pointer;
+  touch-action: none;
+}
+.fly-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #4f2d70;
+}
+.arcade-coins {
+  font-size: 14px;
+  color: var(--yellow);
+  margin: 2px 0 8px;
+}
+.quiz-vraag {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 6px 0 12px;
+  max-width: 360px;
+}
+.quiz-uitslag {
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 18px;
+  margin-top: 8px;
+}
+.arcade-btn.fout {
+  background: #6a3038;
+  opacity: 0.6;
+}
+.shop-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: min(86vw, 380px);
+  background: rgba(20, 27, 48, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 8px 12px;
+  margin: 6px 0;
+}
+.shop-info {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+.shop-info b {
+  font-size: 14px;
+}
+.shop-info span {
+  font-size: 11px;
+  color: #aeb6c6;
+}
+.arcade-btn.small-btn.cantbuy {
+  opacity: 0.5;
+}
+.arcade-btn.small-btn.on {
+  background: #4caf50;
+}
+.arcade-btn.small-btn.off {
+  background: #5a5a5a;
+}
+
 /* ---------- Multiplayer-balk ---------- */
 #mpbar {
   position: absolute;

@@ -35,15 +35,49 @@
             <p class="arcade-greeting" id="introGreeting"></p>
             <p class="arcade-city">Stad: <b id="introCity">Haarlem</b></p>
             <p class="arcade-hi">TOPSCORE <span id="introHi">0</span></p>
-            <p class="arcade-pick">Kies een spel:</p>
+            <p class="arcade-pick">Loop vrij rond. Ga naar je school om een spel te kiezen!</p>
+            <button class="arcade-btn" id="btnPlay">SPELEN</button>
+            <button class="arcade-btn" id="btnMulti">SAMEN SPELEN</button>
+            <button class="arcade-btn alt" id="btnShop">WINKEL</button>
+            <button class="arcade-btn alt" id="btnCity">ANDERE STAD</button>
+            <button class="arcade-btn alt" id="btnCreator">MAAK JE POPJE</button>
+            <button class="arcade-btn alt" id="btnSettings">INSTELLINGEN</button>
+          </div>
+        </div>
+
+        <!-- Schoolmenu: kies hier een spel, de quiz of de winkel -->
+        <div id="schoolscreen" class="screen">
+          <div class="arcade">
+            <h1 class="arcade-title small">OP SCHOOL</h1>
+            <p class="arcade-pick">Wat wil je doen?</p>
             <button class="arcade-btn" id="btnDiamond">DIAMANTEN ZOEKEN</button>
             <button class="arcade-btn" id="btnTag">TIKKERTJE</button>
             <button class="arcade-btn" id="btnHide">VERSTOPPERTJE</button>
             <button class="arcade-btn" id="btnBaby">DE EETBABY</button>
-            <button class="arcade-btn" id="btnMulti">SAMEN SPELEN</button>
-            <button class="arcade-btn alt" id="btnCity">ANDERE STAD</button>
-            <button class="arcade-btn alt" id="btnCreator">MAAK JE POPJE</button>
-            <button class="arcade-btn alt" id="btnSettings">INSTELLINGEN</button>
+            <button class="arcade-btn" id="btnQuiz">SCHOOLQUIZ (munten)</button>
+            <button class="arcade-btn alt" id="btnShop2">WINKEL</button>
+            <button class="arcade-btn alt" id="btnSchoolBack">TERUG NAAR BUITEN</button>
+          </div>
+        </div>
+
+        <!-- Schoolquiz -->
+        <div id="quizscreen" class="screen">
+          <div class="arcade">
+            <p class="arcade-coins">Munten: <b id="quizCoins">0</b></p>
+            <p class="quiz-vraag" id="quizVraag">...</p>
+            <div id="quizOpts"></div>
+            <p class="quiz-uitslag" id="quizUitslag"></p>
+            <button class="arcade-btn alt" id="btnQuizStop">STOPPEN</button>
+          </div>
+        </div>
+
+        <!-- Winkel -->
+        <div id="shopscreen" class="screen">
+          <div class="arcade">
+            <h1 class="arcade-title small">WINKEL</h1>
+            <p class="arcade-coins">Munten: <b id="shopCoins">0</b></p>
+            <div id="shopItems"></div>
+            <button class="arcade-btn alt" id="btnShopBack">TERUG</button>
           </div>
         </div>
 
@@ -134,6 +168,7 @@
           <div id="timer" class="hud-item hud-timer"></div>
         </div>
         <div class="hud-right">
+          <div id="coins" class="hud-item"></div>
           <div id="diamonds" class="hud-item"></div>
           <div id="score" class="hud-item hud-score">00000</div>
           <button id="btnHome" class="hud-btn" aria-label="Terug naar start">
@@ -175,6 +210,12 @@
 
       <!-- Aanbellen / huis kiezen (verschijnt als je bij een huis staat) -->
       <button id="btnBell" class="bell-btn" style="display: none">BEL AAN</button>
+
+      <!-- Bij de school: kies een spel -->
+      <button id="btnSchool" class="bell-btn school-btn" style="display: none">KIES EEN SPEL</button>
+
+      <!-- Vliegen met de vleugels (ingedrukt houden) -->
+      <button id="btnFly" class="fly-btn" style="display: none">VLIEG</button>
 
       <!-- Multiplayer-balk (code + scorebord) -->
       <div id="mpbar">

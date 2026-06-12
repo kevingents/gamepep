@@ -7,6 +7,8 @@ import { refresh, cachedTop, cachedTopScore, qualifies, submit } from './scores.
 import { joinRoom, leaveRoom, sendState, sendFx, sendTag, makeCode, inRoom } from './multiplayer.js'
 import { createSky } from './sky.js'
 import { getPid, fetchHouses, claimHouse, ringBell, fetchRings } from './social.js'
+import { nextQuestion } from './edu.js'
+import { ADDONS, getCoins, addCoins, getOwned, owns, buy, getActive, setActive } from './store.js'
 
 // =====================================================================
 //  Diamant Haarlem - een 3D arcade-game in Minecraft-stijl.
@@ -57,7 +59,10 @@ const hud = {
   timer: document.getElementById('timer'),
   score: document.getElementById('score'),
   diamonds: document.getElementById('diamonds'),
+  coins: document.getElementById('coins'),
 }
+const coinIcon =
+  '<svg viewBox="0 0 24 24" class="icon"><circle cx="12" cy="12" r="9" fill="#ffd700" stroke="#b8992a" stroke-width="2"/><text x="12" y="16" font-size="11" font-weight="bold" text-anchor="middle" fill="#8a6a00">€</text></svg>'
 const muteBtn = document.getElementById('mute')
 const $ = (id) => document.getElementById(id)
 
@@ -221,6 +226,24 @@ function scanBell() {
   else if (o) btn.textContent = 'BEL AAN BIJ ' + (o.name || '?').toUpperCase()
   else btn.textContent = myHouseHere ? 'VERHUIS HIERHEEN' : 'WOON HIER'
 }
+// sta je bij de school? toon de knop om een spel/quiz/winkel te kiezen
+function scanSchool() {
+  const btn = $('btnSchool')
+  if (status !== 'playing' || mode !== 'vrij') {
+    nearSchool = false
+    btn.style.display = 'none'
+    return
+  }
+  const school = world.landmarks.find((l) => l.name === 'Veronicaschool')
+  if (!school) {
+    btn.style.display = 'none'
+    return
+  }
+  const dx = school.x - steveX
+  const dz = school.z - steveZ
+  nearSchool = dx * dx + dz * dz < 6 * 6
+  btn.style.display = nearSchool ? 'block' : 'none'
+}
 async function checkRings() {
   const rows = await fetchRings(myPid)
   if (rows.length) {
@@ -292,14 +315,23 @@ function buildCurrentCity() {
 // ---------- Speler-popje ----------
 let playerCfg = loadCfg()
 let player = null
+let activeAddons = getActive()
 function setCharacter(cfg) {
   const pos = player ? player.position.clone() : null
   const ry = player ? player.rotation.y : 0
+  const sc = player ? player.scale.x : 1
+  const vis = player ? player.visible : true
   if (player) scene.remove(player)
-  player = makeCharacter(cfg)
+  activeAddons = getActive()
+  player = makeCharacter(cfg, activeAddons)
   if (pos) player.position.copy(pos)
   player.rotation.y = ry
+  player.scale.setScalar(sc)
+  player.visible = vis
   scene.add(player)
+}
+function canFly() {
+  return activeAddons.includes('vleugels')
 }
 setCharacter(playerCfg)
 
@@ -334,8 +366,13 @@ let faceX = 0
 let faceZ = -1
 let invuln = 0
 let pendingScore = 0
-let mode = 'diamond' // 'diamond' | 'tag' | 'hide' | 'mp'
+let mode = 'diamond' // 'vrij' | 'diamond' | 'tag' | 'hide' | 'baby' | 'mp'
 let tagLimit = TAG_TIME // gekozen tikkertje-tijd (0 = zonder tijd)
+let coinPickups = [] // gouden muntjes om op te rapen
+let coins = getCoins() // spaarpot voor de winkel
+let flyH = 0 // vlieghoogte (alleen met vleugels)
+let flyHeld = false
+let nearSchool = false
 // echt tikkertje: rollen wisselen - tik jij iemand, dan is dat kind 'm en jaagt op jou
 let itIsPlayer = true
 let myTags = 0
@@ -714,6 +751,27 @@ function clearRound() {
   june = null
   juneTag = null
   carrying = null
+  coinPickups = []
+}
+function makeCoinMesh() {
+  const m = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.26, 0.26, 0.07, 14),
+    new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0x6a5200, metalness: 0.6, roughness: 0.3 })
+  )
+  m.rotation.x = Math.PI / 2
+  m.castShadow = true
+  return m
+}
+function spawnCoins(taken, n) {
+  for (let i = 0; i < n; i++) {
+    const c = freeCell(taken)
+    if (!c) continue
+    const holder = new THREE.Group()
+    holder.add(makeCoinMesh())
+    holder.position.set(c.x, 0.9, c.z)
+    roundGroup.add(holder)
+    coinPickups.push({ mesh: holder, x: c.x, z: c.z, taken: false, phase: Math.random() * 6.28 })
+  }
 }
 
 // geheime plekken: een verstopte schatkist of gouden diamant, ver weg
@@ -933,7 +991,7 @@ function buildRound() {
     feeds = 0
     carrying = null
     cryTimer = 5
-  } else {
+  } else if (mode === 'tag' || mode === 'hide') {
     totalKids = BASE_KIDS + (round - 1)
     for (let i = 0; i < totalKids; i++) {
       let c = null
@@ -966,6 +1024,8 @@ function buildRound() {
   }
   for (let i = 0; i < 6; i++) spawnPowerup(taken)
   spawnSecrets(taken)
+  spawnCoins(taken, mode === 'vrij' ? 30 : 14)
+  flyH = 0
   steveX = START.x
   steveZ = START.z
   player.position.set(steveX, 0, steveZ)
@@ -986,6 +1046,12 @@ function buildRound() {
 const held = { up: false, down: false, left: false, right: false } // toetsenbord (desktop)
 const joyVec = { x: 0, y: 0 } // joystick (mobiel/tablet): x = sturen, y = vooruit/achteruit
 function moveSteve(dx, dz) {
+  // hoog in de lucht (vliegen) vlieg je over de gebouwen heen
+  if (flyH > 2.4) {
+    steveX = clamp(steveX + dx, 0.6, GRID - 0.6)
+    steveZ = clamp(steveZ + dz, 0.6, GRID - 0.6)
+    return
+  }
   // de speler heeft een "dikte" (R) zodat je niet in muren/bomen clipt
   const R = 0.34
   const nx = clamp(steveX + dx, 0.6, GRID - 0.6)
@@ -1008,7 +1074,7 @@ function updatePlayer(dt) {
   faceZ = -Math.cos(yaw)
   const u = player.userData
   if (fwd !== 0) {
-    const boost = (POWERS.speed.t > 0 ? 1.95 : 1) * (POWERS.giant.t > 0 ? 1.45 : 1)
+    const boost = (POWERS.speed.t > 0 ? 1.95 : 1) * (POWERS.giant.t > 0 ? 1.45 : 1) * (activeAddons.includes('schoenen') ? 1.4 : 1)
     const sp = STEVE_SPEED * boost * dt * (fwd > 0 ? 1 : 0.6) // achteruit iets langzamer
     moveSteve(faceX * fwd * sp, faceZ * fwd * sp)
     footTimer -= dt
@@ -1028,8 +1094,16 @@ function updatePlayer(dt) {
     u.lArm.rotation.x *= 0.7
     u.rArm.rotation.x *= 0.7
   }
-  player.position.set(steveX, 0, steveZ)
+  // vliegen met de vleugels: knop ingedrukt = omhoog, los = zachtjes dalen
+  if (canFly() && flyHeld) flyH = Math.min(14, flyH + dt * 6)
+  else flyH = Math.max(0, flyH - dt * 5)
+  player.position.set(steveX, flyH, steveZ)
   player.rotation.y = yaw
+  if (u.lWing) {
+    const flap = Math.sin(performance.now() * 0.02) * (flyH > 0.2 ? 0.8 : 0.18)
+    u.lWing.rotation.z = 0.45 + flap
+    u.rWing.rotation.z = -0.45 - flap
+  }
   if (invuln > 0) invuln -= dt
 }
 function updateCreepers(dt) {
@@ -1099,7 +1173,22 @@ function updateNPCs(dt) {
     }
   }
 }
+function earnCoins(n) {
+  coins = addCoins(n)
+  updateHud()
+}
 function checkCollisions() {
+  for (const cp of coinPickups) {
+    if (cp.taken) continue
+    const cdx = cp.x - steveX
+    const cdz = cp.z - steveZ
+    if (cdx * cdx + cdz * cdz < 0.5 * 0.5) {
+      cp.taken = true
+      cp.mesh.visible = false
+      sfx.coin()
+      earnCoins(1)
+    }
+  }
   for (const s of secrets) {
     if (s.taken) continue
     const sdx = s.x - steveX
@@ -1108,6 +1197,7 @@ function checkCollisions() {
       s.taken = true
       s.mesh.visible = false
       score += s.points
+      earnCoins(s.kind === 'gold' ? 20 : 10)
       sfx.win()
       showToast(s.label)
       updateHud()
@@ -1122,6 +1212,7 @@ function checkCollisions() {
         d.collected = true
         d.mesh.visible = false
         score += 100
+        earnCoins(3)
         sfx.coin()
         updateHud()
         if (diamonds.every((q) => q.collected)) {
@@ -1618,10 +1709,10 @@ function showHitFlash() {
 // looprichting, zodat je echt door de straten van Haarlem loopt.
 function firstPersonCam() {
   // ooghoogte van een kind: de huizen en de stad voelen lekker groot
-  const eye = POWERS.giant.t > 0 ? 4.8 : 1.05
+  const eye = (POWERS.giant.t > 0 ? 4.8 : 1.05) + flyH
   const dip = POWERS.giant.t > 0 ? 2.4 : 0.3
   camera.position.set(steveX, eye, steveZ)
-  camera.lookAt(steveX + faceX * 2, eye - dip, steveZ + faceZ * 2)
+  camera.lookAt(steveX + faceX * 2, eye - dip - flyH * 0.25, steveZ + faceZ * 2)
 }
 function setOverviewCam() {
   camera.fov = 55
@@ -1662,6 +1753,15 @@ function updateHungerBar() {
   hud.timer.innerHTML = '<span class="hbar"><i style="width:' + pct + '%;background:' + col + '"></i></span>'
 }
 function updateHud() {
+  if (hud.coins) hud.coins.innerHTML = coinIcon + '<span>' + coins + '</span>'
+  if (mode === 'vrij') {
+    hud.hearts.style.display = 'none'
+    hud.timer.style.display = 'none'
+    hud.diamonds.innerHTML = ''
+    hud.score.textContent = ''
+    hud.level.textContent = 'VRIJ SPELEN'
+    return
+  }
   const isD = mode === 'diamond'
   const timed = mode === 'hide' || (mode === 'tag' && tagLimit > 0)
   hud.hearts.style.display = isD || mode === 'baby' ? 'flex' : 'none'
@@ -1703,6 +1803,115 @@ function hideAllScreens() {
   $('lobby').classList.remove('show')
   $('settings').classList.remove('show')
   $('tagscreen').classList.remove('show')
+  $('schoolscreen').classList.remove('show')
+  $('quizscreen').classList.remove('show')
+  $('shopscreen').classList.remove('show')
+}
+// ---------- Schoolmenu, Schoolquiz en Winkel ----------
+function showSchoolMenu() {
+  resumeAudio()
+  status = 'schoolmenu'
+  setChrome(false)
+  $('btnSchool').style.display = 'none'
+  $('btnFly').style.display = 'none'
+  $('btnBell').style.display = 'none'
+  hideAllScreens()
+  $('schoolscreen').classList.add('show')
+}
+function resumeRoam() {
+  status = 'playing'
+  hideAllScreens()
+  setChrome(true)
+}
+let quizQ = null
+function showQuiz() {
+  resumeAudio()
+  status = 'quiz'
+  setChrome(false)
+  hideAllScreens()
+  $('quizscreen').classList.add('show')
+  nextQuiz()
+}
+function nextQuiz() {
+  quizQ = nextQuestion()
+  $('quizCoins').textContent = coins
+  $('quizVraag').textContent = quizQ.vraag
+  $('quizUitslag').textContent = ''
+  const wrap = $('quizOpts')
+  wrap.innerHTML = ''
+  quizQ.opties.forEach((opt, i) => {
+    const b = document.createElement('button')
+    b.className = 'arcade-btn'
+    b.textContent = opt
+    b.onclick = () => answerQuiz(i, b)
+    wrap.appendChild(b)
+  })
+}
+function answerQuiz(i, btn) {
+  if (!quizQ) return
+  if (i === quizQ.goed) {
+    earnCoins(quizQ.beloning)
+    sfx.coin()
+    $('quizCoins').textContent = coins
+    $('quizUitslag').textContent = 'Goed! +' + quizQ.beloning + ' munten'
+    $('quizUitslag').style.color = '#6fe08a'
+    quizQ = null
+    setTimeout(() => {
+      if (status === 'quiz') nextQuiz()
+    }, 850)
+  } else {
+    sfx.bonk()
+    btn.classList.add('fout')
+    $('quizUitslag').textContent = 'Bijna! Probeer nog eens'
+    $('quizUitslag').style.color = '#ff8a8a'
+  }
+}
+let shopReturn = 'intro'
+function showShop(from) {
+  resumeAudio()
+  shopReturn = from
+  status = 'shop'
+  setChrome(false)
+  hideAllScreens()
+  renderShop()
+  $('shopscreen').classList.add('show')
+}
+function renderShop() {
+  $('shopCoins').textContent = coins
+  const wrap = $('shopItems')
+  wrap.innerHTML = ''
+  for (const a of ADDONS) {
+    const row = document.createElement('div')
+    row.className = 'shop-row'
+    const heeft = owns(a.key)
+    const aan = getActive().includes(a.key)
+    row.innerHTML = '<div class="shop-info"><b>' + a.label + '</b><span>' + a.tip + '</span></div>'
+    const btn = document.createElement('button')
+    btn.className = 'arcade-btn small-btn'
+    if (!heeft) {
+      btn.textContent = a.prijs + ' €'
+      if (coins < a.prijs) btn.classList.add('cantbuy')
+      btn.onclick = () => {
+        if (buy(a.key)) {
+          coins = getCoins()
+          sfx.win()
+          setCharacter(playerCfg)
+          updateHud()
+          renderShop()
+        } else showToast('Niet genoeg munten - speel of doe de quiz!')
+      }
+    } else {
+      btn.textContent = aan ? 'AAN' : 'UIT'
+      btn.classList.add(aan ? 'on' : 'off')
+      btn.onclick = () => {
+        setActive(a.key, !aan)
+        setCharacter(playerCfg)
+        renderShop()
+      }
+    }
+    row.appendChild(btn)
+    wrap.appendChild(row)
+  }
 }
 function showTagPicker() {
   resumeAudio()
@@ -2080,6 +2289,28 @@ joyEl.addEventListener('pointercancel', (e) => {
 })
 
 // ---------- Knoppen ----------
+$('btnPlay').addEventListener('click', () => startGame('vrij'))
+$('btnShop').addEventListener('click', () => showShop('intro'))
+$('btnSchool').addEventListener('click', showSchoolMenu)
+$('btnSchoolBack').addEventListener('click', resumeRoam)
+$('btnQuiz').addEventListener('click', showQuiz)
+$('btnQuizStop').addEventListener('click', showSchoolMenu)
+$('btnShop2').addEventListener('click', () => showShop('school'))
+$('btnShopBack').addEventListener('click', () => (shopReturn === 'school' ? showSchoolMenu() : showIntro()))
+{
+  const flyBtn = $('btnFly')
+  const flyOn = (e) => {
+    e.preventDefault()
+    flyHeld = true
+  }
+  const flyOff = () => {
+    flyHeld = false
+  }
+  flyBtn.addEventListener('pointerdown', flyOn)
+  flyBtn.addEventListener('pointerup', flyOff)
+  flyBtn.addEventListener('pointercancel', flyOff)
+  flyBtn.addEventListener('pointerleave', flyOff)
+}
 $('btnDiamond').addEventListener('click', () => startGame('diamond'))
 $('btnTag').addEventListener('click', showTagPicker)
 $('btnTagNoTime').addEventListener('click', () => startGame('tag', 0))
@@ -2215,6 +2446,8 @@ function frame(now) {
   if (bellScanT <= 0) {
     bellScanT = 0.3
     scanBell() // sta je bij een huis? toon BEL AAN / WOON HIER
+    scanSchool() // sta je bij de school? toon KIES SPEL
+    $('btnFly').style.display = status === 'playing' && canFly() ? 'block' : 'none'
   }
   if (status === 'playing') {
     updatePlayer(dt)
@@ -2310,6 +2543,11 @@ function frame(now) {
         if (s.taken || !s.spin) continue
         s.mesh.rotation.y += dt * 2.4
         s.mesh.position.y = 0.8 + Math.sin(now * 0.003) * 0.15
+      }
+      for (const cp of coinPickups) {
+        if (cp.taken) continue
+        cp.mesh.rotation.y += dt * 3
+        cp.mesh.position.y = 0.9 + Math.sin(now * 0.004 + cp.phase) * 0.12
       }
       for (const lm of world.landmarks) {
         if (shownFacts.has(lm.name)) continue
