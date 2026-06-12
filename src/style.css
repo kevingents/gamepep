@@ -247,6 +247,19 @@ body {
   padding: 18px;
   overflow-y: auto;
 }
+/* menu-/lijstschermen krijgen een stevige achtergrond zodat de tekst goed
+   leesbaar is (intro, popjesmaker en game-over houden hun 3D-achtergrond) */
+#shopscreen.show,
+#quizscreen.show,
+#choresscreen.show,
+#gatescreen.show,
+#schoolscreen.show,
+#settings.show,
+#tagscreen.show,
+#lobby.show,
+#cityscreen.show {
+  background: rgba(9, 13, 26, 0.97);
+}
 .arcade-pick {
   font-size: 15px;
   margin: 4px 0 10px;
