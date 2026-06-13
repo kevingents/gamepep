@@ -633,6 +633,100 @@ function buildLandmark(ctx, lm) {
       makeBike(z + 0.45, '#b23a2e')
       break
     }
+    case 'youtuber': {
+      // Het Minecraft-huis van YouTuber Alex Klein (Pep is grote fan!). Blokkig
+      // huis van planken/cobblestone met glas, een creeper in de tuin, een
+      // YouTube-bord met play-knop, een camera op statief en een TNT-blok.
+      const planks = '#b07a3e'
+      const plankDark = '#8a5e2e'
+      const cobble = '#8f96a0'
+      const glass = '#bcd8e8'
+      const grass = '#5fae3a'
+      const dirt = '#7a5230'
+      const D = 3.4
+      const W = 3.0
+      const FX = x + D / 2 // voorgevel naar de straat (+x)
+      solidRect(Math.floor(x) - 2, Math.floor(z) - 2, 4, 4)
+      // grasblok-fundering (Minecraft!)
+      box(dirt, D + 0.2, 0.5, W + 0.2, x, 0, z)
+      box(grass, D + 0.24, 0.14, W + 0.24, x, 0.5, z)
+      // plankenromp + cobblestone hoekstijlen
+      box(planks, D, 3.0, W, x, 0.6, z)
+      for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) box(cobble, 0.36, 3.0, 0.36, x + sx * (D / 2 - 0.18), 0.6, z + sz * (W / 2 - 0.18))
+      // ramen met glas op de straatgevel
+      for (const wz of [z - 0.78, z + 0.78]) {
+        box('#5a3a22', 0.1, 0.86, 0.9, FX - 0.02, 1.5, wz)
+        box(glass, 0.06, 0.7, 0.74, FX + 0.01, 1.6, wz)
+      }
+      // deur (dark oak) in het midden
+      box('#3a2a1c', 0.12, 1.5, 0.74, FX - 0.02, 0.6, z)
+      box('#241910', 0.14, 1.4, 0.6, FX + 0.01, 0.6, z)
+      box('#ffd700', 0.07, 0.07, 0.07, FX + 0.06, 1.35, z + 0.22) // klink
+      // diamantblok + glowstone als accent naast de deur
+      box('#48d4e0', 0.5, 0.5, 0.5, FX - 0.02, 0.7, z - 1.16)
+      box('#ffd86b', 0.5, 0.5, 0.5, FX - 0.02, 0.7, z + 1.16)
+      // blokkig dak (planken + donkere nok)
+      box(plankDark, D + 0.3, 0.4, W + 0.3, x, 3.6, z)
+      box('#454b54', D - 0.5, 0.5, W - 0.5, x, 4.0, z)
+      // ---- creeper op een hek in de tuin ----
+      const cgx = FX + 1.2
+      const cgz = z - 1.1
+      box(plankDark, 0.18, 1.3, 0.18, cgx, 0, cgz)
+      box('#5bbf52', 0.72, 0.72, 0.72, cgx, 1.3, cgz) // creeperkop
+      // het creepergezicht kijkt naar de straat (+x)
+      for (const ez of [-0.16, 0.16]) box('#173a1c', 0.06, 0.18, 0.18, cgx + 0.37, 1.5, cgz + ez) // ogen
+      box('#173a1c', 0.06, 0.34, 0.12, cgx + 0.37, 1.34, cgz) // mond midden
+      box('#173a1c', 0.06, 0.16, 0.18, cgx + 0.37, 1.18, cgz - 0.13)
+      box('#173a1c', 0.06, 0.16, 0.18, cgx + 0.37, 1.18, cgz + 0.13)
+      // ---- TNT-blok in de tuin ----
+      const tgx = FX + 1.0
+      const tgz = z + 1.2
+      box('#c43a2e', 0.6, 0.6, 0.6, tgx, 0, tgz)
+      box('#e8e2d6', 0.62, 0.12, 0.62, tgx, 0.24, tgz)
+      // ---- camera op statief ----
+      const camx = FX + 1.9
+      box('#2a2f3a', 0.07, 1.2, 0.07, camx, 0, z - 0.2, 0)
+      box('#2a2f3a', 0.07, 1.2, 0.07, camx, 0, z + 0.2)
+      box('#16161e', 0.4, 0.3, 0.55, camx, 1.2, z)
+      box('#0e0e14', 0.18, 0.18, 0.12, camx - 0.26, 1.3, z) // lens
+      box('#e63946', 0.07, 0.07, 0.07, camx + 0.18, 1.42, z) // rood opnamelampje
+      // ---- YouTube-bord met play-knop en zijn naam ----
+      const bx = FX + 1.0
+      const bz = z - 2.0
+      box('#3a3d44', 0.16, 3.2, 0.16, bx, 0, bz)
+      const sc = document.createElement('canvas')
+      sc.width = 256
+      sc.height = 128
+      const s2 = sc.getContext('2d')
+      s2.fillStyle = '#ffffff'
+      s2.fillRect(0, 0, 256, 128)
+      s2.fillStyle = '#e0292b' // YouTube-rood
+      const rr = 18
+      s2.beginPath()
+      s2.moveTo(40, 16)
+      s2.arcTo(216, 16, 216, 60, rr)
+      s2.arcTo(216, 60, 40, 60, rr)
+      s2.arcTo(40, 60, 40, 16, rr)
+      s2.arcTo(40, 16, 216, 16, rr)
+      s2.fill()
+      s2.fillStyle = '#ffffff'
+      s2.beginPath()
+      s2.moveTo(116, 26)
+      s2.lineTo(116, 50)
+      s2.lineTo(140, 38)
+      s2.closePath()
+      s2.fill()
+      s2.fillStyle = '#16161e'
+      s2.font = 'bold 38px Trebuchet MS, Arial, sans-serif'
+      s2.textAlign = 'center'
+      s2.fillText('ALEX KLEIN', 128, 104)
+      const tex = new THREE.CanvasTexture(sc)
+      const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 1.0), new THREE.MeshBasicMaterial({ map: tex }))
+      sign.position.set(bx + 0.1, 3.4, bz)
+      sign.rotation.y = Math.PI / 2
+      group.add(sign)
+      break
+    }
     // 'label' (en onbekend): alleen een naambordje, geen gebouw
   }
 }
@@ -1586,6 +1680,7 @@ export const CITIES = [
       { name: 'Molen De Adriaan', type: 'windmill', x: 121, z: 28, labelY: 7.2, fact: 'Molen De Adriaan staat op de oostoever van het Spaarne. Vroeger werd er onder andere tabak en verf gemaakt.' },
       { name: 'Amsterdamse Poort', type: 'gate', x: 139, z: 74, labelY: 6.4, fact: 'De Amsterdamse Poort staat aan het einde van de Spaarnwouderstraat, aan de oostrand van de stad. Erachter ligt de Herensingel.' },
       { name: 'Lange Herenvest 16', type: 'herenvest', x: 133, z: 84, labelY: 6.4, labelScale: 1.2, fact: 'Dit is jullie eigen huis aan de Lange Herenvest 16: rode baksteen met witte kruis-luiken, een witte erker en twee dakkapellen. In de Burgwal-buurt ten oosten van het Spaarne, vlak bij de Amsterdamse Poort!' },
+      { name: 'Alex Klein', type: 'youtuber', x: 133, z: 94, labelY: 5.6, labelScale: 1.1, fact: 'Het Minecraft-huis van YouTuber Alex Klein! Hij maakt grappige Minecraft-filmpjes voor kinderen. Kijk: een creeper in de tuin, een camera en zijn eigen YouTube-bord. Hij woont vlak bij jullie!' },
       { name: 'Station Haarlem', type: 'station', x: 74, z: 8, labelY: 5.6, fact: 'Vanaf Haarlem reed in 1839 de allereerste trein van Nederland! De Kruisweg loopt recht naar het station.' },
       { name: 'Veronicaschool', type: 'school', x: 87, z: 98.2, labelY: 5.8, labelScale: 1.3, fact: 'Dit is jouw school aan de Antoniestraat, midden in Haarlem! Het is een Jenaplanschool: binnen zitten ze in de kring. Je kunt naar binnen lopen!' },
       { name: 'Frans Hals Museum', type: 'museum', x: 68, z: 99, opts: { color: '#8a4632' }, labelY: 6.0, fact: 'In het Frans Hals Museum aan het Groot Heiligland hangen schilderijen van Frans Hals, de beroemdste schilder van Haarlem.' },
