@@ -261,7 +261,10 @@
       <!-- Minikaart (GTA-stijl) linksboven -->
       <canvas id="minimap" width="120" height="120"></canvas>
 
-      <!-- Joystick (mobiel/tablet) linksonder -->
+      <!-- Joystick (mobiel/tablet) linksonder; de grote touch-zone vangt
+           tikken in de hele linkeronderkant zodat het popje gewoon loopt
+           ook al tik je net naast het ringetje -->
+      <div id="joyZone"></div>
       <div id="joystick"><div id="joyKnob"></div></div>
 
       <!-- Aanbellen / huis kiezen (verschijnt als je bij een huis staat) -->

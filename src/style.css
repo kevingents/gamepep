@@ -492,19 +492,31 @@ body {
 }
 
 /* ---------- Joystick (overlay linksonder) ---------- */
+#joyZone {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 55vw;
+  height: 60vh;
+  z-index: 19;
+  touch-action: none;
+  background: transparent;
+}
 #joystick {
   position: absolute;
   left: calc(16px + env(safe-area-inset-left));
   bottom: calc(20px + env(safe-area-inset-bottom));
-  width: 122px;
-  height: 122px;
+  width: 150px;
+  height: 150px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.25);
   background: rgba(20, 27, 48, 0.35);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   z-index: 20;
   touch-action: none;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
 }
 #joyKnob {
   position: absolute;

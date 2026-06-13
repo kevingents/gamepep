@@ -2861,44 +2861,69 @@ window.addEventListener('keyup', (e) => {
   if (dir) held[dir] = false
 })
 // Joystick (telefoon/tablet): duim op de stick, duwen = lopen, opzij = sturen.
+// Joystick met grote touch-zone: tik ergens in de linker-onderkant van het
+// scherm en de joystick verspringt naar je vinger. Geen gemis meer.
 const joyEl = $('joystick')
 const joyKnob = $('joyKnob')
+const joyZone = $('joyZone')
+const JOY_R = 70 // hoever de knob mag uitwijken (px)
+const JOY_DZ = 8 // dode zone in px om per-ongeluk-bewegen te voorkomen
 let joyId = null
+let joyCx = 0
+let joyCy = 0
 function joySet(e) {
-  const r = joyEl.getBoundingClientRect()
-  let dx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2)
-  let dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2)
+  let dx = e.clientX - joyCx
+  let dy = e.clientY - joyCy
   const len = Math.hypot(dx, dy)
-  if (len > 1) {
-    dx /= len
-    dy /= len
+  if (len > JOY_R) {
+    dx = (dx / len) * JOY_R
+    dy = (dy / len) * JOY_R
   }
-  joyVec.x = dx
-  joyVec.y = dy
-  joyKnob.style.transform = 'translate(' + dx * 34 + 'px,' + dy * 34 + 'px)'
+  const nx = dx / JOY_R
+  const ny = dy / JOY_R
+  const dead = Math.hypot(dx, dy) < JOY_DZ
+  joyVec.x = dead ? 0 : nx
+  joyVec.y = dead ? 0 : ny
+  joyKnob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)'
+}
+function joyShowAt(x, y) {
+  joyCx = x
+  joyCy = y
+  // verspring naar de tikpositie (vinger = midden van de joystick)
+  joyEl.style.left = x - 75 + 'px'
+  joyEl.style.top = y - 75 + 'px'
+  joyEl.style.bottom = 'auto'
+  joyEl.style.opacity = '0.95'
 }
 function joyReset() {
   joyId = null
   joyVec.x = 0
   joyVec.y = 0
   joyKnob.style.transform = ''
+  // terug naar de standaardplek (hint linksonder)
+  joyEl.style.left = ''
+  joyEl.style.top = ''
+  joyEl.style.bottom = ''
+  joyEl.style.opacity = ''
 }
-joyEl.addEventListener('pointerdown', (e) => {
+joyZone.addEventListener('pointerdown', (e) => {
+  if (joyId !== null) return
   e.preventDefault()
   joyId = e.pointerId
   try {
-    joyEl.setPointerCapture(e.pointerId)
+    joyZone.setPointerCapture(e.pointerId)
   } catch (err) {}
   resumeAudio()
+  joyShowAt(e.clientX, e.clientY)
   joySet(e)
 })
-joyEl.addEventListener('pointermove', (e) => {
+joyZone.addEventListener('pointermove', (e) => {
   if (e.pointerId === joyId) joySet(e)
 })
-joyEl.addEventListener('pointerup', (e) => {
+joyZone.addEventListener('pointerup', (e) => {
   if (e.pointerId === joyId) joyReset()
 })
-joyEl.addEventListener('pointercancel', (e) => {
+joyZone.addEventListener('pointercancel', (e) => {
   if (e.pointerId === joyId) joyReset()
 })
 
