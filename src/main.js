@@ -567,6 +567,9 @@ let juneX = 0
 let juneZ = 0
 let foods = []
 let carrying = null
+// hulp-Alex voor de eetbaby-modus: tijdelijke NPC die naar June rent met eten
+let alexHelper = null // { mesh, tag, x, z, phase, fed }
+let alexCool = 0 // cooldown in seconden voor de ROEP ALEX-knop
 let hunger = 0
 let feeds = 0
 let cryTimer = 0
@@ -670,6 +673,7 @@ function makeBoef() {
   return g
 }
 function setNpcLook(n, boef) {
+  if (n.isAlex) return // Alex blijft altijd herkenbaar als Alex, geen boevenpak
   const old = n.mesh
   const fresh = boef ? makeBoef() : makeCharacter(n.cfg)
   fresh.scale.setScalar(CHAR_SCALE)
@@ -752,6 +756,10 @@ function makeBubble(text) {
   spr.scale.set((bh * width) / height, bh, 1)
   return spr
 }
+// Alex Klein: zijn vaste outfit (cyaan shirt, donkere broek, rode pet) en zijn
+// uitspraken. Wordt gebruikt door de wandelende NPC en door tikkertje/
+// verstoppertje (waar Alex de boef of de gezochte is).
+const ALEX_CFG = { skin: 4, hairStyle: 0, hair: 5, shirt: 10, pants: 1, shoes: 0, glasses: 0, hat: 1 }
 const ALEX_LINES = [
   'Hoi! Ik ben Alex Klein!',
   'Vandaag bouwen we een diamanten huis!',
@@ -897,7 +905,6 @@ function spawnAmbients() {
   // het naambordje boven zijn hoofd.
   if (CITIES[cityIndex].key === 'haarlem') {
     const c = freeCell(taken) || { x: 132, z: 95 }
-    const ALEX_CFG = { skin: 4, hairStyle: 0, hair: 5, shirt: 10, pants: 1, shoes: 0, glasses: 0, hat: 1 }
     const mesh = makeCharacter(ALEX_CFG)
     mesh.scale.setScalar(CHAR_SCALE)
     mesh.position.set(c.x, 0, c.z)
@@ -1007,6 +1014,8 @@ function clearRound() {
   juneTag = null
   carrying = null
   coinPickups = []
+  alexHelper = null
+  alexCool = 0
 }
 function makeCoinMesh() {
   const m = new THREE.Mesh(
@@ -1261,20 +1270,32 @@ function buildRound() {
         }
       } else c = freeCell(taken)
       if (!c) continue
-      const kidCfg = randomCfg()
+      // Het EERSTE kind is Alex Klein: in tikkertje is hij 'm vanaf het begin,
+      // in verstoppertje is hij gewoon een (extra leuk) te vinden kind.
+      const isAlex = i === 0
+      const kidCfg = isAlex ? ALEX_CFG : randomCfg()
       const m = makeCharacter(kidCfg)
       m.scale.setScalar(CHAR_SCALE)
       m.position.set(c.x, 0, c.z)
       roundGroup.add(m)
-      npcs.push({ mesh: m, cfg: kidCfg, x: c.x, z: c.z, heading: Math.random() * 6.28, timer: 0, phase: 0, caught: false, it: false })
+      let tag = null
+      if (isAlex) {
+        tag = makeNameTag('ALEX', '#e0292b')
+        tag.position.set(c.x, 2.45, c.z)
+        roundGroup.add(tag)
+      }
+      npcs.push({ mesh: m, cfg: kidCfg, tag, isAlex, x: c.x, z: c.z, heading: Math.random() * 6.28, timer: 0, phase: 0, caught: false, it: false })
     }
     timeLeft = mode === 'tag' ? tagLimit : Math.max(50, HIDE_TIME - 8 * (round - 1))
     if (mode === 'tag') {
-      itIsPlayer = true
+      itIsPlayer = false // Alex begint als de tikker
       myTags = 0
       kidTags = 0
       targetTags = 4 + round
       spTagCool = 0
+      const alex = npcs.find((n) => n.isAlex)
+      if (alex) alex.it = true
+      showToast('Alex is hem! Pas op, hij jaagt op jou')
     }
   }
   for (let i = 0; i < 6; i++) spawnPowerup(taken)
@@ -1422,15 +1443,77 @@ function updateNPCs(dt) {
       n.mesh.userData.lArm.rotation.x = -sw
       n.mesh.userData.rArm.rotation.x = sw
       n.mesh.position.set(n.x, Math.abs(Math.sin(n.phase)) * 0.05, n.z)
+      if (n.tag) n.tag.position.set(n.x, 2.45, n.z)
     } else {
       n.phase += dt * 2
       n.mesh.position.y = Math.abs(Math.sin(n.phase)) * 0.03
+      if (n.tag) n.tag.position.set(n.x, 2.45, n.z)
     }
   }
 }
 function earnCoins(n) {
   coins = addCoins(n)
   updateHud()
+}
+// ---------- Hulp van Alex in de eetbaby-modus ----------
+function clearAlexHelper() {
+  if (!alexHelper) return
+  if (alexHelper.mesh) roundGroup.remove(alexHelper.mesh)
+  if (alexHelper.tag) roundGroup.remove(alexHelper.tag)
+  alexHelper = null
+}
+function callAlexHelper() {
+  if (mode !== 'baby' || status !== 'playing') return
+  if (alexCool > 0 || alexHelper) return
+  alexCool = 25 // cooldown
+  const mesh = makeCharacter(ALEX_CFG)
+  mesh.scale.setScalar(CHAR_SCALE)
+  // spawn naast de speler
+  const sx = steveX + (Math.random() < 0.5 ? -2 : 2)
+  const sz = steveZ + (Math.random() < 0.5 ? -2 : 2)
+  mesh.position.set(sx, 0, sz)
+  roundGroup.add(mesh)
+  const tag = makeNameTag('ALEX', '#e0292b')
+  tag.position.set(sx, 2.45, sz)
+  roundGroup.add(tag)
+  alexHelper = { mesh, tag, x: sx, z: sz, phase: 0, fed: false }
+  sfx.win()
+  showToast('Alex komt June helpen!')
+}
+function updateAlexHelper(dt) {
+  if (!alexHelper) return
+  // ren snel naar June, voer haar, verdwijn
+  const dx = juneX - alexHelper.x
+  const dz = juneZ - alexHelper.z
+  const d = Math.hypot(dx, dz)
+  if (!alexHelper.fed && d > 0.6) {
+    const sp = STEVE_SPEED * 1.2 * dt
+    alexHelper.x += (dx / (d || 1)) * sp
+    alexHelper.z += (dz / (d || 1)) * sp
+    alexHelper.mesh.rotation.y = Math.atan2(dx, -dz)
+    alexHelper.phase += dt * 14
+    const sw = Math.sin(alexHelper.phase) * 0.7
+    const u = alexHelper.mesh.userData
+    u.lLeg.rotation.x = sw
+    u.rLeg.rotation.x = -sw
+    u.lArm.rotation.x = -sw
+    u.rArm.rotation.x = sw
+  } else if (!alexHelper.fed) {
+    alexHelper.fed = true
+    hunger = Math.max(0.1, hunger - 0.4) // grote opluchting!
+    feeds += 1
+    sfx.coin()
+    showToast('Alex heeft June gevoerd!')
+    updateHud()
+    alexHelper.gone = 1.6 // verdwijnt over 1.6s
+  } else if (alexHelper.gone > 0) {
+    alexHelper.gone -= dt
+    if (alexHelper.gone <= 0) clearAlexHelper()
+  }
+  if (alexHelper) {
+    alexHelper.mesh.position.set(alexHelper.x, 0, alexHelper.z)
+    if (alexHelper.tag) alexHelper.tag.position.set(alexHelper.x, 2.45, alexHelper.z)
+  }
 }
 function checkCollisions() {
   for (const cp of coinPickups) {
@@ -1501,7 +1584,7 @@ function checkCollisions() {
             setNpcLook(n, true) // het kind wordt de boef!
             itIsPlayer = false
             spTagCool = 1.5
-            showToast('Getikt! Nu is het kind de boef - ren weg!')
+            showToast(n.isAlex ? 'YES! Je tikte ALEX! Nu is een ander kind de boef' : 'Getikt! Nu is het kind de boef - ren weg!')
             updateHud()
             if (myTags >= targetTags) roundClear()
             break
@@ -1517,11 +1600,12 @@ function checkCollisions() {
             score = Math.max(0, score - 100)
             sfx.bonk()
             showHitFlash()
+            const wasAlex = it.isAlex
             it.it = false
             setNpcLook(it, false) // boevenpak weer uit
             itIsPlayer = true
             spTagCool = 1.5
-            showToast('De boef heeft je getikt! Nu ben jij hem')
+            showToast(wasAlex ? 'Alex heeft je getikt! Nu ben jij hem' : 'De boef heeft je getikt! Nu ben jij hem')
             updateHud()
           }
         }
@@ -1567,9 +1651,10 @@ function checkCollisions() {
       if (dx * dx + dz * dz < 0.7 * 0.7) {
         n.caught = true
         n.mesh.visible = false
+        if (n.tag) n.tag.visible = false
         score += 200
         sfx.coin()
-        showToast('Gevonden!')
+        showToast(n.isAlex ? 'YESSS! Je hebt ALEX gevonden!' : 'Gevonden!')
         updateHud()
         if (npcs.every((q) => q.caught)) {
           roundClear()
@@ -1646,6 +1731,13 @@ function updateActionButtons() {
     b.classList.toggle('cooling', p.count <= 0 && p.t <= 0) // grijs als je 'm niet hebt
     const badge = b.querySelector('.count')
     if (badge) badge.textContent = p.count > 0 ? String(p.count) : ''
+  }
+  // ROEP ALEX-knop alleen zichtbaar in de eetbaby-modus
+  const alexBtn = $('btnAlex')
+  if (alexBtn) {
+    const show = status === 'playing' && mode === 'baby'
+    alexBtn.style.display = show ? '' : 'none'
+    if (show) alexBtn.classList.toggle('cooling', alexCool > 0 || !!alexHelper)
   }
 }
 function playSocial(which) {
@@ -2915,6 +3007,10 @@ $('btnSpeed').addEventListener('click', () => activatePower('speed'))
 $('btnGiant').addEventListener('click', () => activatePower('giant'))
 $('btnFart').addEventListener('click', () => playSocial('fart'))
 $('btnBurp').addEventListener('click', () => playSocial('burp'))
+$('btnAlex').addEventListener('click', () => {
+  resumeAudio()
+  callAlexHelper()
+})
 
 // multiplayer
 $('btnMulti').addEventListener('click', showLobby)
@@ -3041,6 +3137,8 @@ function frame(now) {
       } else itMarker.visible = false
     }
     if (status === 'playing' && mode === 'baby') {
+      if (alexCool > 0) alexCool -= dt
+      updateAlexHelper(dt)
       hunger = Math.min(1, hunger + (0.014 + 0.005 * (round - 1)) * dt) // elke ronde sneller honger
       const stage = hunger > 0.92 ? 3 : hunger > 0.72 ? 2 : hunger > 0.48 ? 1 : 0
       cryTimer -= dt
