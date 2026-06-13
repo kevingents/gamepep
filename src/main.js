@@ -721,18 +721,64 @@ function makeBubble(text) {
   spr.scale.set((bh * width) / height, bh, 1)
   return spr
 }
+const ALEX_LINES = [
+  'Hoi! Ik ben Alex Klein!',
+  'Vandaag bouwen we een diamanten huis!',
+  'Pas op voor de creepers!',
+  'Like en abonneer als je dit leuk vindt!',
+  'Mijn nieuwste video is uit!',
+  'Welkom in mijn Minecraft-wereld!',
+  'Ik heb een diamanten zwaard!',
+  'Wow, wat een mooie stad!',
+]
 function walkerSay(a) {
   let txt = null
-  const r = Math.random()
-  if (r < 0.3) txt = secretTip()
-  if (!txt && r < 0.65) txt = JOKES[(Math.random() * JOKES.length) | 0]
-  if (!txt) txt = GREETS[(Math.random() * GREETS.length) | 0]
+  if (a.isAlex) txt = ALEX_LINES[(Math.random() * ALEX_LINES.length) | 0]
+  else {
+    const r = Math.random()
+    if (r < 0.3) txt = secretTip()
+    if (!txt && r < 0.65) txt = JOKES[(Math.random() * JOKES.length) | 0]
+    if (!txt) txt = GREETS[(Math.random() * GREETS.length) | 0]
+  }
   if (a.bubble) scene.remove(a.bubble)
   a.bubble = makeBubble(txt)
   a.bubble.position.set(a.x, 1.8, a.z)
   scene.add(a.bubble)
   a.bubbleT = 4.5
   sfx.chat()
+}
+// vast naambordje boven Alex' hoofd, altijd zichtbaar
+function makeNameTag(name, color) {
+  const c = document.createElement('canvas')
+  c.width = 256
+  c.height = 96
+  const g = c.getContext('2d')
+  const w = c.width
+  const h = c.height
+  g.fillStyle = color || '#36d6e7'
+  const r = 16
+  g.beginPath()
+  g.moveTo(r, 6)
+  g.arcTo(w - 8, 6, w - 8, h - 14, r)
+  g.arcTo(w - 8, h - 14, 8, h - 14, r)
+  g.arcTo(8, h - 14, 8, 6, r)
+  g.arcTo(8, 6, w - 8, 6, r)
+  g.closePath()
+  g.fill()
+  g.strokeStyle = '#06222a'
+  g.lineWidth = 4
+  g.stroke()
+  g.fillStyle = '#06222a'
+  g.font = 'bold 44px Trebuchet MS, Arial, sans-serif'
+  g.textAlign = 'center'
+  g.textBaseline = 'middle'
+  g.fillText(name, w / 2, h / 2 - 4)
+  const tex = new THREE.CanvasTexture(c)
+  tex.minFilter = THREE.LinearFilter
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }))
+  spr.renderOrder = 999
+  spr.scale.set(1.6, 0.6, 1)
+  return spr
 }
 function makeCat() {
   const cols = [0x1c1c24, 0xf2f2f2, 0xd98a3d, 0x8a8f98]
@@ -794,6 +840,7 @@ function spawnAmbients() {
   for (const a of ambients) {
     scene.remove(a.mesh)
     if (a.bubble) scene.remove(a.bubble)
+    if (a.tag) scene.remove(a.tag)
   }
   ambients = []
   const taken = new Set()
@@ -814,6 +861,35 @@ function spawnAmbients() {
     mesh.position.set(c.x, 0, c.z)
     scene.add(mesh)
     ambients.push({ kind: isCat ? 'kat' : 'hond', mesh, x: c.x, z: c.z, heading: Math.random() * 6.28, timer: 0, phase: Math.random() * 6, speed: isCat ? 1.9 : 2.3, sndCool: 0, chatCool: 0, bubble: null, bubbleT: 0 })
+  }
+  // YouTuber Alex Klein loopt rond in Haarlem - herkenbaar aan zijn outfit en
+  // het naambordje boven zijn hoofd.
+  if (CITIES[cityIndex].key === 'haarlem') {
+    const c = freeCell(taken) || { x: 132, z: 95 }
+    const ALEX_CFG = { skin: 4, hairStyle: 0, hair: 5, shirt: 10, pants: 1, shoes: 0, glasses: 0, hat: 1 }
+    const mesh = makeCharacter(ALEX_CFG)
+    mesh.scale.setScalar(CHAR_SCALE)
+    mesh.position.set(c.x, 0, c.z)
+    scene.add(mesh)
+    const tag = makeNameTag('ALEX', '#e0292b') // YouTube-rood
+    tag.position.set(c.x, 2.45, c.z)
+    scene.add(tag)
+    ambients.push({
+      kind: 'mens',
+      isAlex: true,
+      mesh,
+      tag,
+      x: c.x,
+      z: c.z,
+      heading: Math.random() * 6.28,
+      timer: 0,
+      phase: Math.random() * 6,
+      speed: 1.4,
+      sndCool: 0,
+      chatCool: Math.random() * 6,
+      bubble: null,
+      bubbleT: 0,
+    })
   }
 }
 function updateAmbients(dt) {
@@ -846,6 +922,7 @@ function updateAmbients(dt) {
       a.mesh.rotation.y = Math.atan2(dx, -dz)
     } else a.timer = 0
     a.mesh.position.set(a.x, 0, a.z)
+    if (a.tag) a.tag.position.set(a.x, 2.45, a.z)
     a.phase += dt * 8
     const u = a.mesh.userData
     if (a.kind === 'mens') {
@@ -866,10 +943,11 @@ function updateAmbients(dt) {
     const pdz = a.z - steveZ
     const dicht = pdx * pdx + pdz * pdz < 2.4 * 2.4
     if (a.kind === 'mens') {
-      // passanten zeggen hoi, vertellen een mop of verklappen een geheim
-      if (dicht && a.chatCool <= 0 && chatGlobalCool <= 0) {
-        a.chatCool = 20 + Math.random() * 15
-        chatGlobalCool = 5
+      // passanten zeggen hoi, vertellen een mop of verklappen een geheim;
+      // Alex praat vaker (hij is YouTuber, hij maakt nu eenmaal een video)
+      if (dicht && a.chatCool <= 0 && (a.isAlex || chatGlobalCool <= 0)) {
+        a.chatCool = a.isAlex ? 8 + Math.random() * 6 : 20 + Math.random() * 15
+        if (!a.isAlex) chatGlobalCool = 5
         walkerSay(a)
       }
     } else if (a.sndCool <= 0 && dicht) {
@@ -2078,6 +2156,61 @@ function checkGate() {
   }
 }
 let shopReturn = 'intro'
+// Mini-plaatjes: het popje mét elk item. Eenmalig gerenderd en bewaard zodat
+// kinderen zien wat ze kopen. De plaatjes ploppen er op de achtergrond in
+// (geen hapering bij het openen van de winkel).
+const _thumbCache = {}
+let _thumbR = null
+let _thumbScene = null
+let _thumbCam = null
+function makeThumb(key) {
+  if (_thumbCache[key]) return _thumbCache[key]
+  if (!_thumbR) {
+    const W = 88
+    const H = 116
+    _thumbR = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true })
+    _thumbR.setPixelRatio(1)
+    _thumbR.setSize(W, H)
+    _thumbScene = new THREE.Scene()
+    _thumbScene.add(new THREE.AmbientLight(0xffffff, 0.95))
+    const dl = new THREE.DirectionalLight(0xffffff, 0.55)
+    dl.position.set(2, 4, 3)
+    _thumbScene.add(dl)
+    _thumbCam = new THREE.PerspectiveCamera(38, W / H, 0.1, 50)
+    _thumbCam.position.set(0.15, 1.25, 4.3)
+    _thumbCam.lookAt(0, 1.02, 0)
+  }
+  const m = makeCharacter(playerCfg, [key])
+  m.rotation.y = 0.5
+  _thumbScene.add(m)
+  _thumbR.render(_thumbScene, _thumbCam)
+  const url = _thumbR.domElement.toDataURL('image/png')
+  _thumbScene.remove(m)
+  m.traverse((o) => {
+    if (o.isMesh) {
+      if (o.geometry) o.geometry.dispose()
+      if (o.material) o.material.dispose()
+    }
+  })
+  _thumbCache[key] = url
+  return url
+}
+// vul de nog lege plaatjes één voor één (verspreid over frames)
+function fillThumbs() {
+  const todo = Array.prototype.filter.call(document.querySelectorAll('#shopItems img.shop-thumb'), (el) => !el.getAttribute('src'))
+  let i = 0
+  const step = () => {
+    if (status !== 'shop') return
+    const el = todo[i]
+    if (!el) return
+    try {
+      el.src = makeThumb(el.getAttribute('data-key'))
+    } catch (e) {}
+    i++
+    if (i < todo.length) setTimeout(step, 12)
+  }
+  setTimeout(step, 30)
+}
 function showShop(from) {
   resumeAudio()
   shopReturn = from
@@ -2110,7 +2243,9 @@ function renderShop() {
     row.className = 'shop-row'
     const heeft = owns(a.key)
     const aan = getActive().includes(a.key)
-    row.innerHTML = '<div class="shop-info"><b>' + a.label + '</b><span>' + a.tip + '</span></div>'
+    const cached = _thumbCache[a.key]
+    const img = '<img class="shop-thumb" alt="" data-key="' + a.key + '"' + (cached ? ' src="' + cached + '"' : '') + '>'
+    row.innerHTML = img + '<div class="shop-info"><b>' + a.label + '</b><span>' + a.tip + '</span></div>'
     const btn = document.createElement('button')
     btn.className = 'arcade-btn small-btn'
     if (!heeft) {
@@ -2137,6 +2272,7 @@ function renderShop() {
     row.appendChild(btn)
     wrap.appendChild(row)
   }
+  fillThumbs()
 }
 function showTagPicker() {
   resumeAudio()
