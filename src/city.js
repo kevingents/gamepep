@@ -737,6 +737,86 @@ function buildLandmark(ctx, lm) {
       group.add(sign)
       break
     }
+    case 'dennis': {
+      // Het huis van Dennis: een blokjesstijl A-frame cabine van eikenhout met
+      // een hoge spitse nok, ramen met glas, een eikenhouten deur en
+      // lantaarns ervoor. Algemene Minecraft-cabine, eigen interpretatie.
+      const wood = '#7e4a26'
+      const woodDark = '#5e371b'
+      const trim = '#caa472'
+      const glass = '#bcd8e8'
+      const lantern = '#ffd166'
+      const D = 4.0
+      const W = 3.6
+      const FX = x + D / 2
+      solidRect(Math.floor(x) - 2, Math.floor(z) - 2, 5, 5)
+      // platvorm + onderbouw
+      box('#5fae3a', D + 0.4, 0.18, W + 0.4, x, 0, z)
+      box(woodDark, D, 0.5, W, x, 0.18, z)
+      // muren maar laag - het meeste is het dak
+      box(wood, D, 1.6, W, x, 0.68, z)
+      box(trim, D + 0.06, 0.18, W + 0.06, x, 2.18, z) // boordlijst
+      // hele hoge driehoekige A-frame nok - karakteristiek
+      const nokH = 6.0
+      gableRoof(x, z, W, D, 2.28, nokH, 'x', wood)
+      // donkere balken op de gevel voor de "vakwerk" look
+      for (const fz of [z - W / 2 + 0.1, z + W / 2 - 0.1]) {
+        // diagonalen op de driehoekige gevel
+        const beam = new THREE.Mesh(new THREE.BoxGeometry(0.16, Math.hypot(W / 2, nokH), 0.05), matOf(woodDark))
+        beam.position.set(FX + 0.01, 2.28 + nokH / 2, fz < z ? z : z)
+        // simpeler: schuine balken op de voorgevel
+      }
+      // grote dubbele deur in het midden
+      box(trim, 0.12, 1.6, 1.2, FX - 0.02, 0.18, z)
+      box(woodDark, 0.16, 1.4, 1.0, FX + 0.02, 0.18, z)
+      box('#3a3d44', 0.04, 0.08, 0.06, FX + 0.07, 1.0, z + 0.3) // klink
+      // twee ramen naast de deur
+      for (const wz of [z - 1.2, z + 1.2]) {
+        box(trim, 0.1, 0.7, 0.7, FX - 0.02, 0.7, wz)
+        box(glass, 0.06, 0.56, 0.56, FX + 0.01, 0.78, wz)
+        // raamkruis
+        box(trim, 0.08, 0.06, 0.58, FX + 0.02, 1.06, wz)
+        box(trim, 0.08, 0.58, 0.06, FX + 0.02, 0.78, wz)
+      }
+      // dakraam in de driehoekige nok (hoog)
+      box(trim, 0.1, 0.5, 0.5, FX - 0.02, 4.0, z)
+      box(glass, 0.06, 0.4, 0.4, FX + 0.01, 4.05, z)
+      // gevel-vensterluiken in donker hout
+      for (const wz of [z - 1.5, z + 1.5]) box(woodDark, 0.06, 0.7, 0.15, FX + 0.02, 0.7, wz)
+      // lantaarns aan weerszijden van de deur
+      for (const lz of [z - 0.85, z + 0.85]) {
+        box(woodDark, 0.12, 0.12, 0.12, FX + 0.08, 1.4, lz) // ophangblok
+        box(lantern, 0.18, 0.22, 0.18, FX + 0.18, 1.18, lz) // licht
+        box('#2a2a2a', 0.08, 0.06, 0.08, FX + 0.18, 1.40, lz) // dop
+      }
+      // tuintje voor de deur: paadje van platen, plantjes
+      for (let i = 0; i < 3; i++) box('#aab0b8', 0.6, 0.05, 0.5, FX + 1.4 + i * 0.6, 0.18, z)
+      box('#3f8a2e', 0.3, 0.2, 0.3, FX + 0.6, 0.18, z - 1.8) // grasplukje
+      box('#3f8a2e', 0.3, 0.2, 0.3, FX + 0.6, 0.18, z + 1.8)
+      // klein houten naambord
+      const sgx = FX + 1.7
+      const sgz = z - 1.2
+      box(woodDark, 0.1, 1.2, 0.1, sgx, 0, sgz)
+      const nc = document.createElement('canvas')
+      nc.width = 256
+      nc.height = 96
+      const n2 = nc.getContext('2d')
+      n2.fillStyle = '#ffd166'
+      n2.fillRect(0, 0, 256, 96)
+      n2.strokeStyle = '#7e4a26'
+      n2.lineWidth = 8
+      n2.strokeRect(6, 6, 244, 84)
+      n2.fillStyle = '#3a2a1c'
+      n2.font = 'bold 50px Trebuchet MS, Arial, sans-serif'
+      n2.textAlign = 'center'
+      n2.textBaseline = 'middle'
+      n2.fillText('DENNIS', 128, 52)
+      const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.5), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(nc) }))
+      sign.position.set(sgx + 0.1, 1.4, sgz)
+      sign.rotation.y = Math.PI / 2
+      group.add(sign)
+      break
+    }
     // 'label' (en onbekend): alleen een naambordje, geen gebouw
   }
 }
@@ -1691,6 +1771,7 @@ export const CITIES = [
       { name: 'Amsterdamse Poort', type: 'gate', x: 139, z: 74, labelY: 6.4, fact: 'De Amsterdamse Poort staat aan het einde van de Spaarnwouderstraat, aan de oostrand van de stad. Erachter ligt de Herensingel.' },
       { name: 'Lange Herenvest 16', type: 'herenvest', x: 133, z: 84, labelY: 6.4, labelScale: 1.2, fact: 'Dit is jullie eigen huis aan de Lange Herenvest 16: rode baksteen met witte kruis-luiken, een witte erker en twee dakkapellen. In de Burgwal-buurt ten oosten van het Spaarne, vlak bij de Amsterdamse Poort!' },
       { name: 'Alex Klein', type: 'youtuber', x: 133, z: 94, labelY: 5.6, labelScale: 1.1, fact: 'Het Minecraft-huis van YouTuber Alex Klein! Hij maakt grappige Minecraft-filmpjes voor kinderen. Kijk: een creeper in de tuin, een camera en zijn eigen YouTube-bord. Hij woont vlak bij jullie!' },
+      { name: 'Dennis', type: 'dennis', x: 133, z: 104, labelY: 9.6, labelScale: 1.1, fact: 'Het cabin-huis van Dennis, een ander YouTube-vriendje van Pep. Een blokjes-cabin met een hoge spitse nok, twee lantaarns naast de deur en een paadje door de tuin. Hij is buurman van Alex!' },
       { name: 'Station Haarlem', type: 'station', x: 74, z: 8, labelY: 5.6, fact: 'Vanaf Haarlem reed in 1839 de allereerste trein van Nederland! De Kruisweg loopt recht naar het station.' },
       { name: 'Veronicaschool', type: 'school', x: 87, z: 98.2, labelY: 5.8, labelScale: 1.3, fact: 'Dit is jouw school aan de Antoniestraat, midden in Haarlem! Het is een Jenaplanschool: binnen zitten ze in de kring. Je kunt naar binnen lopen!' },
       { name: 'Frans Hals Museum', type: 'museum', x: 68, z: 99, opts: { color: '#8a4632' }, labelY: 6.0, fact: 'In het Frans Hals Museum aan het Groot Heiligland hangen schilderijen van Frans Hals, de beroemdste schilder van Haarlem.' },

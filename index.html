@@ -264,11 +264,14 @@
       <!-- Minikaart (GTA-stijl) linksboven -->
       <canvas id="minimap" width="120" height="120"></canvas>
 
-      <!-- Joystick (mobiel/tablet) linksonder; de grote touch-zone vangt
-           tikken in de hele linkeronderkant zodat het popje gewoon loopt
-           ook al tik je net naast het ringetje -->
+      <!-- Twee-handen besturing:
+           LINKS = voor/achteruit lopen, RECHTS = sturen (draaien).
+           Beide hebben een grote onzichtbare touch-zone zodat een tik in
+           de buurt al telt; de joystick verspringt naar je vinger. -->
       <div id="joyZone"></div>
       <div id="joystick"><div id="joyKnob"></div></div>
+      <div id="joyZoneR"></div>
+      <div id="joystickR"><div id="joyKnobR"></div></div>
 
       <!-- Aanbellen / huis kiezen (verschijnt als je bij een huis staat) -->
       <button id="btnBell" class="bell-btn" style="display: none">BEL AAN</button>

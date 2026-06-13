@@ -770,9 +770,22 @@ const ALEX_LINES = [
   'Ik heb een diamanten zwaard!',
   'Wow, wat een mooie stad!',
 ]
+// Dennis: het tweede vriendje van Pep. Gele outfit + donkerrood haar zodat hij
+// er heel anders uitziet dan Alex.
+const DENNIS_CFG = { skin: 4, hairStyle: 0, hair: 3, shirt: 2, pants: 2, shoes: 5, glasses: 0, hat: 0 }
+const DENNIS_LINES = [
+  'Hoi! Ik ben Dennis!',
+  'Ik vind bouwen het allerleukst!',
+  'Heb je mijn nieuwste video al gezien?',
+  'Wat een mooi avontuur!',
+  'Tijd voor een speel-uurtje!',
+  'Pas op voor de zombies!',
+  'Mijn favoriete blok is hout!',
+]
 function walkerSay(a) {
   let txt = null
   if (a.isAlex) txt = ALEX_LINES[(Math.random() * ALEX_LINES.length) | 0]
+  else if (a.isDennis) txt = DENNIS_LINES[(Math.random() * DENNIS_LINES.length) | 0]
   else {
     const r = Math.random()
     if (r < 0.3) txt = secretTip()
@@ -925,6 +938,31 @@ function spawnAmbients() {
       speed: 1.4,
       sndCool: 0,
       chatCool: Math.random() * 6,
+      bubble: null,
+      bubbleT: 0,
+    })
+    // Dennis, het tweede vriendje van Pep, loopt ook door Haarlem.
+    const cD = freeCell(taken) || { x: 130, z: 95 }
+    const meshD = makeCharacter(DENNIS_CFG)
+    meshD.scale.setScalar(CHAR_SCALE)
+    meshD.position.set(cD.x, 0, cD.z)
+    scene.add(meshD)
+    const tagD = makeNameTag('DENNIS', '#ffd166')
+    tagD.position.set(cD.x, 2.45, cD.z)
+    scene.add(tagD)
+    ambients.push({
+      kind: 'mens',
+      isDennis: true,
+      mesh: meshD,
+      tag: tagD,
+      x: cD.x,
+      z: cD.z,
+      heading: Math.random() * 6.28,
+      timer: 0,
+      phase: Math.random() * 6,
+      speed: 1.3,
+      sndCool: 0,
+      chatCool: Math.random() * 6 + 3,
       bubble: null,
       bubbleT: 0,
     })
@@ -1320,7 +1358,8 @@ function buildRound() {
 
 // ---------- Bewegen ----------
 const held = { up: false, down: false, left: false, right: false } // toetsenbord (desktop)
-const joyVec = { x: 0, y: 0 } // joystick (mobiel/tablet): x = sturen, y = vooruit/achteruit
+const joyVec = { x: 0, y: 0 } // linker stick (mobiel/tablet): y = vooruit/achteruit
+const turnVec = { x: 0 } // rechter stick (tweede hand): x = links/rechts sturen
 function moveSteve(dx, dz) {
   // hoog in de lucht (vliegen) vlieg je over de gebouwen heen
   if (flyH > 2.4) {
@@ -1341,8 +1380,9 @@ function updatePlayer(dt) {
   // Sturen: toetsenbord (desktop) of touch (vasthouden + schuiven).
   let turn = (held.right ? 1 : 0) - (held.left ? 1 : 0)
   let fwd = (held.up ? 1 : 0) - (held.down ? 1 : 0)
-  if (Math.abs(joyVec.x) > 0.16) turn += joyVec.x
-  if (Math.abs(joyVec.y) > 0.16) fwd += -joyVec.y // joystick omhoog = vooruit
+  if (Math.abs(joyVec.x) > 0.16) turn += joyVec.x // linker stick zijwaarts (single-hand)
+  if (Math.abs(joyVec.y) > 0.16) fwd += -joyVec.y // linker stick omhoog = vooruit
+  if (Math.abs(turnVec.x) > 0.16) turn += turnVec.x // rechter stick (twee-handen)
   turn = Math.max(-1, Math.min(1, turn))
   fwd = Math.max(-1, Math.min(1, fwd))
   yaw += turn * TURN_SPEED * dt
@@ -2960,6 +3000,65 @@ joyZone.addEventListener('pointerup', (e) => {
 })
 joyZone.addEventListener('pointercancel', (e) => {
   if (e.pointerId === joyId) joyReset()
+})
+
+// Rechter stick (twee-handen): alleen draaien (X). Y wordt genegeerd.
+const joyElR = $('joystickR')
+const joyKnobR = $('joyKnobR')
+const joyZoneR = $('joyZoneR')
+let joyIdR = null
+let joyCxR = 0
+let joyCyR = 0
+function joySetR(e) {
+  let dx = e.clientX - joyCxR
+  let dy = e.clientY - joyCyR
+  const len = Math.hypot(dx, dy)
+  if (len > JOY_R) {
+    dx = (dx / len) * JOY_R
+    dy = (dy / len) * JOY_R
+  }
+  const nx = dx / JOY_R
+  turnVec.x = Math.abs(dx) < JOY_DZ ? 0 : nx
+  joyKnobR.style.transform = 'translate(' + dx + 'px,' + dy + 'px)'
+}
+function joyShowAtR(x, y) {
+  joyCxR = x
+  joyCyR = y
+  joyElR.style.left = x - 65 + 'px'
+  joyElR.style.top = y - 65 + 'px'
+  joyElR.style.right = 'auto'
+  joyElR.style.bottom = 'auto'
+  joyElR.style.opacity = '0.95'
+}
+function joyResetR() {
+  joyIdR = null
+  turnVec.x = 0
+  joyKnobR.style.transform = ''
+  joyElR.style.left = ''
+  joyElR.style.top = ''
+  joyElR.style.right = ''
+  joyElR.style.bottom = ''
+  joyElR.style.opacity = ''
+}
+joyZoneR.addEventListener('pointerdown', (e) => {
+  if (joyIdR !== null) return
+  e.preventDefault()
+  joyIdR = e.pointerId
+  try {
+    joyZoneR.setPointerCapture(e.pointerId)
+  } catch (err) {}
+  resumeAudio()
+  joyShowAtR(e.clientX, e.clientY)
+  joySetR(e)
+})
+joyZoneR.addEventListener('pointermove', (e) => {
+  if (e.pointerId === joyIdR) joySetR(e)
+})
+joyZoneR.addEventListener('pointerup', (e) => {
+  if (e.pointerId === joyIdR) joyResetR()
+})
+joyZoneR.addEventListener('pointercancel', (e) => {
+  if (e.pointerId === joyIdR) joyResetR()
 })
 
 // ---------- Knoppen ----------
