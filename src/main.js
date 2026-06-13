@@ -22,8 +22,8 @@ import { DECOR, getDecorOwned, ownsDecor, buyDecor, getPlaced, placeDecor, remov
 const GRID = 160
 const ROAD_STEP = 14
 const MAX_HEARTS = 3
-const STEVE_SPEED = 6.0
-const TURN_SPEED = 2.4
+const STEVE_SPEED = 7.2 // basis-loopsnelheid (was 6.0) - makkelijker voor kids
+const TURN_SPEED = 3.0 // basis-draaisnelheid (was 2.4)
 const CREEPER_SPEED = 2.1
 const BASE_DIAMONDS = 10
 const BASE_CREEPERS = 3
@@ -1314,7 +1314,7 @@ function buildRound() {
   faceZ = -Math.cos(yaw)
   camera.fov = 70
   camera.updateProjectionMatrix()
-  firstPersonCam()
+  gameCam()
   updateHud()
 }
 
@@ -1839,7 +1839,7 @@ function startMultiplayer(code, isCreator) {
   radarBeacon.visible = false
   camera.fov = 70
   camera.updateProjectionMatrix()
-  firstPersonCam()
+  gameCam()
   $('mpCode').textContent = 'Code: ' + code
   $('mpbar').style.display = 'flex'
   document.getElementById('hud').style.display = 'none'
@@ -2054,12 +2054,47 @@ function showHitFlash() {
 // ---------- Camera ----------
 // First person: de camera staat op ooghoogte op de speler en kijkt mee in de
 // looprichting, zodat je echt door de straten van Haarlem loopt.
+// Drie camera-modi: 'first' (ooghoogte, je bent het popje), 'third' (achter
+// het popje zodat je jezelf ziet), 'top' (overzicht hoog erboven).
+let cameraMode = 'first'
+const CAM_MODES = ['first', 'third', 'top']
+const CAM_LABEL = { first: 'EERSTE PERSOON', third: 'DERDE PERSOON', top: 'BOVENAANZICHT' }
 function firstPersonCam() {
-  // ooghoogte van een kind: de huizen en de stad voelen lekker groot
   const eye = (POWERS.giant.t > 0 ? 4.8 : 1.05) + flyH
   const dip = POWERS.giant.t > 0 ? 2.4 : 0.3
   camera.position.set(steveX, eye, steveZ)
   camera.lookAt(steveX + faceX * 2, eye - dip - flyH * 0.25, steveZ + faceZ * 2)
+}
+function thirdPersonCam() {
+  // camera achter en boven het popje; je ziet jezelf van achteren lopen
+  const back = 3.6
+  const up = 2.6 + flyH
+  camera.position.set(steveX - faceX * back, up, steveZ - faceZ * back)
+  camera.lookAt(steveX + faceX * 1.5, 0.9 + flyH * 0.5, steveZ + faceZ * 1.5)
+}
+function topDownCam() {
+  // hoog boven het popje, kijkt schuin naar beneden naar voren
+  const up = 10 + flyH
+  camera.position.set(steveX - faceX * 0.8, up, steveZ - faceZ * 0.8)
+  camera.lookAt(steveX + faceX * 3, 0, steveZ + faceZ * 3)
+}
+function gameCam() {
+  if (cameraMode === 'third') {
+    player.visible = true
+    thirdPersonCam()
+  } else if (cameraMode === 'top') {
+    player.visible = true
+    topDownCam()
+  } else {
+    player.visible = false
+    firstPersonCam()
+  }
+}
+function cycleCamera() {
+  const i = CAM_MODES.indexOf(cameraMode)
+  cameraMode = CAM_MODES[(i + 1) % CAM_MODES.length]
+  showToast(CAM_LABEL[cameraMode])
+  if (status === 'playing') gameCam()
 }
 function setOverviewCam() {
   camera.fov = 55
@@ -3069,6 +3104,10 @@ $('btnHome').addEventListener('click', () => {
   if (inRoom()) stopMultiplayer()
   else showIntro()
 })
+$('btnCam').addEventListener('click', () => {
+  resumeAudio()
+  cycleCamera()
+})
 
 // instellingen
 $('btnSettings').addEventListener('click', showSettings)
@@ -3245,7 +3284,7 @@ function frame(now) {
           break // maar één weetje tegelijk
         }
       }
-      firstPersonCam()
+      gameCam()
     }
   } else if (status === 'creator') {
     player.rotation.y += dt * 0.8
