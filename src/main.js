@@ -1358,8 +1358,7 @@ function buildRound() {
 
 // ---------- Bewegen ----------
 const held = { up: false, down: false, left: false, right: false } // toetsenbord (desktop)
-const joyVec = { x: 0, y: 0 } // linker stick (mobiel/tablet): y = vooruit/achteruit
-const turnVec = { x: 0 } // rechter stick (tweede hand): x = links/rechts sturen
+const joyVec = { x: 0, y: 0 } // joystick (mobiel/tablet): x = sturen, y = vooruit/achteruit
 function moveSteve(dx, dz) {
   // hoog in de lucht (vliegen) vlieg je over de gebouwen heen
   if (flyH > 2.4) {
@@ -1380,9 +1379,25 @@ function updatePlayer(dt) {
   // Sturen: toetsenbord (desktop) of touch (vasthouden + schuiven).
   let turn = (held.right ? 1 : 0) - (held.left ? 1 : 0)
   let fwd = (held.up ? 1 : 0) - (held.down ? 1 : 0)
-  if (Math.abs(joyVec.x) > 0.16) turn += joyVec.x // linker stick zijwaarts (single-hand)
-  if (Math.abs(joyVec.y) > 0.16) fwd += -joyVec.y // linker stick omhoog = vooruit
-  if (Math.abs(turnVec.x) > 0.16) turn += turnVec.x // rechter stick (twee-handen)
+  // Joystick-input met betere afstelling voor kids:
+  // - lage dode zone zodat hij direct reageert
+  // - "rechtdoor-bias": kleine zijwaartse afwijking telt niet als je vooral
+  //   omhoog drukt (anders zwabbert het popje constant)
+  // - snel volle snelheid: zachte boost-curve zodat 60% uitslag = vol gas
+  const jx = joyVec.x
+  const jy = joyVec.y
+  const mag = Math.hypot(jx, jy)
+  if (mag > 0.12) {
+    // boost: 0..1 -> 0..1 maar met snelle aanloop (sqrt-curve)
+    const k = Math.min(1, Math.sqrt(mag))
+    const ax = (jx / mag) * k
+    const ay = (jy / mag) * k
+    // rechtdoor-bias: als je vooral omhoog drukt, negeer kleine zijwaartse
+    const angle = Math.abs(Math.atan2(jx, -jy)) // 0 = noord, π/2 = oost
+    const sideOk = angle > 0.28 // ~16 graden
+    if (sideOk) turn += ax
+    fwd += -ay
+  }
   turn = Math.max(-1, Math.min(1, turn))
   fwd = Math.max(-1, Math.min(1, fwd))
   yaw += turn * TURN_SPEED * dt
@@ -2941,8 +2956,8 @@ window.addEventListener('keyup', (e) => {
 const joyEl = $('joystick')
 const joyKnob = $('joyKnob')
 const joyZone = $('joyZone')
-const JOY_R = 70 // hoever de knob mag uitwijken (px)
-const JOY_DZ = 8 // dode zone in px om per-ongeluk-bewegen te voorkomen
+const JOY_R = 64 // hoever de knob mag uitwijken (px); kleiner = vol gas met minder vingerbeweging
+const JOY_DZ = 4 // dode zone in px (was 8) - hij reageert nu direct
 let joyId = null
 let joyCx = 0
 let joyCy = 0
@@ -3000,65 +3015,6 @@ joyZone.addEventListener('pointerup', (e) => {
 })
 joyZone.addEventListener('pointercancel', (e) => {
   if (e.pointerId === joyId) joyReset()
-})
-
-// Rechter stick (twee-handen): alleen draaien (X). Y wordt genegeerd.
-const joyElR = $('joystickR')
-const joyKnobR = $('joyKnobR')
-const joyZoneR = $('joyZoneR')
-let joyIdR = null
-let joyCxR = 0
-let joyCyR = 0
-function joySetR(e) {
-  let dx = e.clientX - joyCxR
-  let dy = e.clientY - joyCyR
-  const len = Math.hypot(dx, dy)
-  if (len > JOY_R) {
-    dx = (dx / len) * JOY_R
-    dy = (dy / len) * JOY_R
-  }
-  const nx = dx / JOY_R
-  turnVec.x = Math.abs(dx) < JOY_DZ ? 0 : nx
-  joyKnobR.style.transform = 'translate(' + dx + 'px,' + dy + 'px)'
-}
-function joyShowAtR(x, y) {
-  joyCxR = x
-  joyCyR = y
-  joyElR.style.left = x - 65 + 'px'
-  joyElR.style.top = y - 65 + 'px'
-  joyElR.style.right = 'auto'
-  joyElR.style.bottom = 'auto'
-  joyElR.style.opacity = '0.95'
-}
-function joyResetR() {
-  joyIdR = null
-  turnVec.x = 0
-  joyKnobR.style.transform = ''
-  joyElR.style.left = ''
-  joyElR.style.top = ''
-  joyElR.style.right = ''
-  joyElR.style.bottom = ''
-  joyElR.style.opacity = ''
-}
-joyZoneR.addEventListener('pointerdown', (e) => {
-  if (joyIdR !== null) return
-  e.preventDefault()
-  joyIdR = e.pointerId
-  try {
-    joyZoneR.setPointerCapture(e.pointerId)
-  } catch (err) {}
-  resumeAudio()
-  joyShowAtR(e.clientX, e.clientY)
-  joySetR(e)
-})
-joyZoneR.addEventListener('pointermove', (e) => {
-  if (e.pointerId === joyIdR) joySetR(e)
-})
-joyZoneR.addEventListener('pointerup', (e) => {
-  if (e.pointerId === joyIdR) joyResetR()
-})
-joyZoneR.addEventListener('pointercancel', (e) => {
-  if (e.pointerId === joyIdR) joyResetR()
 })
 
 // ---------- Knoppen ----------
