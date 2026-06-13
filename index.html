@@ -56,6 +56,7 @@
             <button class="arcade-btn" id="btnBaby">DE EETBABY</button>
             <button class="arcade-btn" id="btnQuiz">SCHOOLQUIZ (munten)</button>
             <button class="arcade-btn" id="btnChores">TAAKJES THUIS</button>
+            <button class="arcade-btn" id="btnDecor">INRICHT JE TUIN</button>
             <button class="arcade-btn alt" id="btnShop2">WINKEL</button>
             <button class="arcade-btn alt" id="btnSchoolBack">TERUG NAAR BUITEN</button>
           </div>
@@ -96,6 +97,17 @@
             </div>
             <p class="quiz-uitslag" id="gateMsg"></p>
             <button class="arcade-btn alt" id="btnGateCancel">ANNULEREN</button>
+          </div>
+        </div>
+
+        <!-- Inricht-scherm: koop decor en plaats het in je tuin -->
+        <div id="decorscreen" class="screen">
+          <div class="arcade">
+            <h1 class="arcade-title small">INRICHT JE TUIN</h1>
+            <p class="arcade-coins">Munten: <b id="decorCoins">0</b></p>
+            <p class="arcade-sub">Koop decor en zet het neer in jullie achtertuin aan de Lange Herenvest 16!</p>
+            <div id="decorItems"></div>
+            <button class="arcade-btn alt" id="btnDecorBack">TERUG</button>
           </div>
         </div>
 
@@ -256,6 +268,10 @@
 
       <!-- Vliegen met de vleugels (ingedrukt houden) -->
       <button id="btnFly" class="fly-btn" style="display: none">VLIEG</button>
+
+      <!-- Plaats decor (verschijnt als je iets gekozen hebt in 'INRICHT JE TUIN') -->
+      <button id="btnPlace" class="place-btn" style="display: none">ZET HIER NEER</button>
+      <button id="btnPlaceCancel" class="place-cancel-btn" style="display: none">STOP</button>
 
       <!-- Multiplayer-balk (code + scorebord) -->
       <div id="mpbar">

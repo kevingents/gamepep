@@ -9,6 +9,7 @@ import { createSky } from './sky.js'
 import { getPid, fetchHouses, claimHouse, ringBell, fetchRings } from './social.js'
 import { nextQuestion } from './edu.js'
 import { ADDONS, FLY_KEYS, SPEED_KEYS, CHORES, choreDoneToday, markChore, getCoins, addCoins, getOwned, owns, buy, getActive, setActive } from './store.js'
+import { DECOR, getDecorOwned, ownsDecor, buyDecor, getPlaced, placeDecor, removeDecorAt, makeDecor } from './decor.js'
 
 // =====================================================================
 //  Diamant Haarlem - een 3D arcade-game in Minecraft-stijl.
@@ -311,6 +312,28 @@ sky.onRain = (r) => {
 // ---------- Haarlem ----------
 const worldGroup = new THREE.Group()
 scene.add(worldGroup)
+// Pep's achtertuin op de Lange Herenvest 16: hier mag je vrij decor neerzetten.
+const TUIN = { x0: 128, z0: 83, w: 3, d: 3, cx: 129.5, cz: 84.5 }
+function inTuin(x, z) {
+  return x >= TUIN.x0 && x < TUIN.x0 + TUIN.w && z >= TUIN.z0 && z < TUIN.z0 + TUIN.d
+}
+const decorGroup = new THREE.Group()
+scene.add(decorGroup)
+let placeKey = null // sleutel van het item dat je nu wil plaatsen (null = uit)
+function rebuildDecor() {
+  for (const child of [...decorGroup.children]) {
+    decorGroup.remove(child)
+    child.traverse((o) => {
+      if (o.isMesh && o.geometry) o.geometry.dispose()
+    })
+  }
+  for (const p of getPlaced()) {
+    const m = makeDecor(p.key)
+    m.position.set(p.x, 0, p.z)
+    m.rotation.y = p.rot || 0
+    decorGroup.add(m)
+  }
+}
 let cityIndex = loadCity()
 let world = buildCity(worldGroup, GRID, CITIES[cityIndex])
 Object.assign(START, world.start) // elke stad heeft zijn eigen startplek (Haarlem: de Grote Markt)
@@ -453,6 +476,14 @@ function buildCurrentCity() {
   spawnAmbients() // nieuwe passanten, katten en honden in de nieuwe stad
   refreshHouses() // naambordjes van de klas in deze stad
   shownFacts = new Set()
+  // alleen in Haarlem heb je jullie eigen tuin, met je opgeslagen decor
+  for (const child of [...decorGroup.children]) {
+    decorGroup.remove(child)
+    child.traverse((o) => {
+      if (o.isMesh && o.geometry) o.geometry.dispose()
+    })
+  }
+  if (CITIES[cityIndex].key === 'haarlem') rebuildDecor()
 }
 
 // ---------- Speler-popje ----------
@@ -2033,6 +2064,7 @@ function hideAllScreens() {
   $('choresscreen').classList.remove('show')
   $('gatescreen').classList.remove('show')
   $('bigmap').classList.remove('show')
+  $('decorscreen').classList.remove('show')
 }
 // ---------- Schoolmenu, Schoolquiz en Winkel ----------
 function showSchoolMenu() {
@@ -2211,6 +2243,128 @@ function fillThumbs() {
   }
   setTimeout(step, 30)
 }
+// ---------- Inrichten: koop decor + plaats het in je tuin ----------
+function makeDecorThumb(key) {
+  if (_thumbCache['decor_' + key]) return _thumbCache['decor_' + key]
+  if (!_thumbR) makeThumb(ADDONS[0].key) // initialiseer de offscreen-renderer
+  const m = makeDecor(key)
+  m.rotation.y = 0.5
+  _thumbScene.add(m)
+  // camera iets verder weg om decor goed in beeld te krijgen
+  const oldPos = _thumbCam.position.clone()
+  _thumbCam.position.set(0.3, 1.4, 4.2)
+  _thumbCam.lookAt(0, 0.6, 0)
+  _thumbR.render(_thumbScene, _thumbCam)
+  const url = _thumbR.domElement.toDataURL('image/png')
+  _thumbCam.position.copy(oldPos)
+  _thumbCam.lookAt(0, 1.02, 0)
+  _thumbScene.remove(m)
+  m.traverse((o) => {
+    if (o.isMesh) {
+      if (o.geometry) o.geometry.dispose()
+      if (o.material) o.material.dispose()
+    }
+  })
+  _thumbCache['decor_' + key] = url
+  return url
+}
+function fillDecorThumbs() {
+  const todo = Array.prototype.filter.call(document.querySelectorAll('#decorItems img.shop-thumb'), (el) => !el.getAttribute('src'))
+  let i = 0
+  const step = () => {
+    if (status !== 'decorshop') return
+    const el = todo[i]
+    if (!el) return
+    try {
+      el.src = makeDecorThumb(el.getAttribute('data-key'))
+    } catch (e) {}
+    i++
+    if (i < todo.length) setTimeout(step, 12)
+  }
+  setTimeout(step, 30)
+}
+function showDecorShop() {
+  resumeAudio()
+  status = 'decorshop'
+  setChrome(false)
+  hideAllScreens()
+  renderDecorShop()
+  $('decorscreen').classList.add('show')
+}
+function renderDecorShop() {
+  $('decorCoins').textContent = coins
+  const wrap = $('decorItems')
+  wrap.innerHTML = ''
+  for (const d of DECOR) {
+    const row = document.createElement('div')
+    row.className = 'shop-row'
+    const heeft = ownsDecor(d.key)
+    const cached = _thumbCache['decor_' + d.key]
+    const img = '<img class="shop-thumb" alt="" data-key="' + d.key + '"' + (cached ? ' src="' + cached + '"' : '') + '>'
+    row.innerHTML = img + '<div class="shop-info"><b>' + d.label + '</b><span>' + d.tip + '</span></div>'
+    const btn = document.createElement('button')
+    btn.className = 'arcade-btn small-btn'
+    if (!heeft) {
+      btn.textContent = d.prijs + ' €'
+      if (coins < d.prijs) btn.classList.add('cantbuy')
+      btn.onclick = () => {
+        if (buyDecor(d.key, getCoins, addCoins)) {
+          coins = getCoins()
+          sfx.win()
+          updateHud()
+          renderDecorShop()
+        } else showToast('Niet genoeg munten - speel of doe de quiz!')
+      }
+    } else {
+      btn.textContent = 'PLAATS'
+      btn.classList.add('on')
+      btn.onclick = () => startPlacing(d.key)
+    }
+    row.appendChild(btn)
+    wrap.appendChild(row)
+  }
+  fillDecorThumbs()
+}
+function startPlacing(key) {
+  if (CITIES[cityIndex].key !== 'haarlem') {
+    showToast('Inrichten kan alleen in Haarlem (jullie tuin)')
+    return
+  }
+  placeKey = key
+  hideAllScreens()
+  status = 'playing'
+  setChrome(true)
+  $('btnPlace').style.display = 'block'
+  $('btnPlaceCancel').style.display = 'block'
+  // teleporteer naar de tuin als je er nog niet bent
+  if (!inTuin(steveX, steveZ)) {
+    steveX = TUIN.cx
+    steveZ = TUIN.cz
+    yaw = 0
+    faceX = Math.sin(yaw)
+    faceZ = -Math.cos(yaw)
+    firstPersonCam()
+  }
+  showToast('Loop in je tuin en tik ZET HIER NEER')
+}
+function cancelPlacing() {
+  placeKey = null
+  $('btnPlace').style.display = 'none'
+  $('btnPlaceCancel').style.display = 'none'
+}
+function doPlace() {
+  if (!placeKey) return
+  // plaats ongeveer 1 cel voor je
+  const px = steveX + faceX * 1.0
+  const pz = steveZ + faceZ * 1.0
+  if (!inTuin(px, pz)) {
+    showToast('Je tuin is achter jullie huis aan de Lange Herenvest')
+    return
+  }
+  placeDecor(placeKey, px, pz, yaw)
+  sfx.win()
+  rebuildDecor()
+}
 function showShop(from) {
   resumeAudio()
   shopReturn = from
@@ -2297,6 +2451,12 @@ function setChrome(v) {
   document.getElementById('actions').style.visibility = vis
   document.getElementById('joystick').style.visibility = vis
   minimap.style.display = v ? 'block' : 'none'
+  // plaats-knoppen alleen zichtbaar zolang je daadwerkelijk aan het plaatsen bent
+  if (!v || !placeKey) {
+    $('btnPlace').style.display = 'none'
+    $('btnPlaceCancel').style.display = 'none'
+    if (!v) placeKey = null
+  }
 }
 function showIntro() {
   status = 'intro'
@@ -2664,6 +2824,13 @@ $('bigmap').addEventListener('click', (e) => {
   if (e.target.id === 'bigmap') closeBigMap()
 })
 $('btnChores').addEventListener('click', showChores)
+$('btnDecor').addEventListener('click', showDecorShop)
+$('btnDecorBack').addEventListener('click', showSchoolMenu)
+$('btnPlace').addEventListener('click', () => {
+  resumeAudio()
+  doPlace()
+})
+$('btnPlaceCancel').addEventListener('click', cancelPlacing)
 $('btnChoresBack').addEventListener('click', showSchoolMenu)
 $('btnGateOk').addEventListener('click', checkGate)
 $('btnGateCancel').addEventListener('click', showChores)

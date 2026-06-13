@@ -550,6 +550,16 @@ function buildLandmark(ctx, lm) {
       const W = 2.6
       const FX = x + D / 2
       solidRect(Math.floor(x) - 2, Math.floor(z) - 1, 4, 4)
+      // achtertuin van Pep (3×3 cellen achter het huis) blijft vrij om in te
+      // richten met decor uit de winkel. Vrolijke grasvloer als markering.
+      const TX0 = Math.floor(x) - 5
+      const TZ0 = Math.floor(z) - 1
+      ctx.reserveRect(TX0, TZ0, 3, 3)
+      for (let gx = 0; gx < 3; gx++)
+        for (let gz = 0; gz < 3; gz++) box('#6fae54', 1, 0.06, 1, TX0 + gx + 0.5, 0, TZ0 + gz + 0.5)
+      // een vrolijk tegelpad van het huis naar de tuin
+      box('#cdc4b0', 0.6, 0.07, 0.6, x - 2.2, 0.005, z)
+      box('#cdc4b0', 0.6, 0.07, 0.6, x - 3.0, 0.005, z)
       box(brick, D, 4.0, W, x, 0, z) // bakstenen romp (twee woonlagen)
       box('#7e4034', D + 0.06, 0.2, W + 0.06, x, 0, z) // donkere plint
       // ---- begane grond: donkere pui ----
